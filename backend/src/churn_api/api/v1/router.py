@@ -2,8 +2,11 @@
 
 from fastapi import APIRouter
 
-from churn_api.api.v1 import health, meta
+from churn_api.api.v1 import batch, health, meta, model_metrics, predictions
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router)
 api_router.include_router(meta.router)
+api_router.include_router(predictions.router)
+api_router.include_router(batch.router)
+api_router.include_router(model_metrics.router)

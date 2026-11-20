@@ -122,3 +122,97 @@ def make_client(
     yield factory
     for client in opened:
         client.__exit__(None, None, None)
+
+
+# --------------------------------------------------------------- T6／T7 共用
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REAL_MODELS_DIR = REPO_ROOT / "models"
+
+
+class FakeRunner:
+    """測試用 ModelRunner：記錄收到的前處理矩陣；機率為向量的確定性函數（不同輸入得不同機率）。"""
+
+    def __init__(self, fixed: float | None = None) -> None:
+        self.fixed = fixed
+        self.calls: list[np.ndarray[Any, Any]] = []
+
+    def predict_proba(self, features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        self.calls.append(np.array(features, copy=True))
+        if self.fixed is not None:
+            return np.full(len(features), self.fixed, dtype=np.float64)
+        logits = features.astype(np.float64).sum(axis=1) * 0.1
+        return np.asarray(1.0 / (1.0 + np.exp(-logits)), dtype=np.float64)
+
+
+class FakeExplainer:
+    """測試用 Explainer：回傳指定的 45 維歸因。"""
+
+    def __init__(self, attribution: np.ndarray[Any, Any], baseline_probability: float = 0.25):
+        self._attribution = np.asarray(attribution, dtype=np.float64)
+        self._baseline = baseline_probability
+
+    @property
+    def baseline_probability(self) -> float:
+        return self._baseline
+
+    def attribute(self, features: np.ndarray[Any, Any]) -> np.ndarray[Any, Any]:
+        return self._attribution
+
+
+@pytest.fixture
+def fake_runner() -> Callable[..., FakeRunner]:
+    return FakeRunner
+
+
+@pytest.fixture
+def fake_explainer() -> Callable[..., FakeExplainer]:
+    return FakeExplainer
+
+
+@pytest.fixture
+def record() -> Callable[..., dict[str, Any]]:
+    """合法的單筆請求本體（高風險範例，省略 TotalCharges）；kwargs 覆寫、DROP=[欄名] 移除。"""
+
+    def factory(**overrides: Any) -> dict[str, Any]:
+        data: dict[str, Any] = dict(EXAMPLES["high_risk"])
+        drop = overrides.pop("DROP", [])
+        data.update(overrides)
+        for name in drop:
+            data.pop(name, None)
+        return data
+
+    return factory
+
+
+@pytest.fixture
+def make_csv() -> Callable[..., bytes]:
+    """把紀錄清單轉成 CSV 位元組。None／缺少的鍵輸出為空白儲存格。"""
+    import csv
+    import io
+
+    from churn_core.schema import FEATURES
+
+    def factory(
+        rows: list[dict[str, Any]],
+        columns: list[str] | None = None,
+        *,
+        bom: bool = False,
+        eol: str = "\r\n",
+    ) -> bytes:
+        cols = columns if columns is not None else ["customerID", *FEATURES]
+        buffer = io.StringIO(newline="")
+        writer = csv.writer(buffer, lineterminator=eol)
+        writer.writerow(cols)
+        for row in rows:
+            writer.writerow(["" if row.get(c) is None else row[c] for c in cols])
+        data = buffer.getvalue().encode("utf-8")
+        return (b"\xef\xbb\xbf" + data) if bom else data
+
+    return factory
+
+
+@pytest.fixture(scope="session")
+def real_models_dir() -> Path:
+    """進版控的正式模型產物（T4）；測試只讀不寫。"""
+    assert (REAL_MODELS_DIR / "manifest.json").is_file(), "缺少 models/ 正式產物"
+    return REAL_MODELS_DIR

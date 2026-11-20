@@ -1,0 +1,1800 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Telco 顧客流失預測 API",
+    "description": "Telco 顧客流失預測 API：單筆預測與主要影響因素、模型成效、批次 CSV 預測。模型以公開範例資料訓練，僅供展示，不可用於真實決策。",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "系統"
+        ],
+        "summary": "健康檢查",
+        "description": "服務正常且模型已載入時回 200 並附模型版本；模型缺檔、雜湊不符或載入失敗時回 503 `MODEL_UNAVAILABLE`（服務本身仍在運作）。供 docker healthcheck 使用。",
+        "operationId": "get_health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MODEL_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "MODEL_UNAVAILABLE": {
+                    "summary": "MODEL_UNAVAILABLE",
+                    "value": {
+                      "error": {
+                        "code": "MODEL_UNAVAILABLE",
+                        "message": "模型尚未載入，服務暫時無法使用。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "tags": [
+          "系統"
+        ],
+        "summary": "前端設定",
+        "description": "回傳風險切點、批次上傳上限與輸入欄位的合法範圍；不需要模型已載入。",
+        "operationId": "get_meta_api_v1_meta_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions": {
+      "post": {
+        "tags": [
+          "預測"
+        ],
+        "summary": "單筆流失預測",
+        "description": "輸入 19 個顧客特徵（TotalCharges 可省略，改以 tenure × MonthlyCharges 估算），回傳流失機率（3 位小數）、風險等級、使用的切點、模型資訊、累計費用資訊，以及影響最大的前 5 個因素（Integrated Gradients，同一次回應一併回傳）。相同輸入的結果完全相同。輸入不合法回 422 並列出所有錯誤欄位；模型不可用回 503。",
+        "operationId": "create_prediction_api_v1_predictions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerFeatures"
+              },
+              "examples": {
+                "high_risk": {
+                  "summary": "高風險範例（TotalCharges 省略，改以估算）",
+                  "value": {
+                    "gender": "Female",
+                    "SeniorCitizen": 0,
+                    "Partner": "No",
+                    "Dependents": "No",
+                    "tenure": 1,
+                    "PhoneService": "Yes",
+                    "MultipleLines": "No",
+                    "InternetService": "Fiber optic",
+                    "OnlineSecurity": "No",
+                    "OnlineBackup": "No",
+                    "DeviceProtection": "No",
+                    "TechSupport": "No",
+                    "StreamingTV": "Yes",
+                    "StreamingMovies": "Yes",
+                    "Contract": "Month-to-month",
+                    "PaperlessBilling": "Yes",
+                    "PaymentMethod": "Electronic check",
+                    "MonthlyCharges": 100.0
+                  }
+                },
+                "low_risk": {
+                  "summary": "低風險範例（TotalCharges 手填）",
+                  "value": {
+                    "gender": "Male",
+                    "SeniorCitizen": 0,
+                    "Partner": "Yes",
+                    "Dependents": "Yes",
+                    "tenure": 70,
+                    "PhoneService": "Yes",
+                    "MultipleLines": "Yes",
+                    "InternetService": "No",
+                    "OnlineSecurity": "No internet service",
+                    "OnlineBackup": "No internet service",
+                    "DeviceProtection": "No internet service",
+                    "TechSupport": "No internet service",
+                    "StreamingTV": "No internet service",
+                    "StreamingMovies": "No internet service",
+                    "Contract": "Two year",
+                    "PaperlessBilling": "No",
+                    "PaymentMethod": "Credit card (automatic)",
+                    "MonthlyCharges": 30.0,
+                    "TotalCharges": 2100.0
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "輸入資料有誤，請檢查標示的欄位。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  },
+                  "TotalCharges 估算超限": {
+                    "summary": "TotalCharges 省略且 tenure × MonthlyCharges 估算值超過 10,000",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "輸入資料有誤，請檢查標示的欄位。",
+                        "details": [
+                          {
+                            "field": "TotalCharges",
+                            "type": "out_of_range",
+                            "reason": "累計費用估算值為 14,400.00，超過上限 10,000，請手動填寫累計費用"
+                          }
+                        ],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MODEL_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "MODEL_UNAVAILABLE": {
+                    "summary": "MODEL_UNAVAILABLE",
+                    "value": {
+                      "error": {
+                        "code": "MODEL_UNAVAILABLE",
+                        "message": "模型尚未載入，服務暫時無法使用。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/batch": {
+      "post": {
+        "tags": [
+          "批次預測"
+        ],
+        "summary": "批次 CSV 預測",
+        "description": "上傳 CSV（UTF-8，可含 BOM；第 1 列為表頭，區分大小寫）。必要欄為 18 個必填特徵，`TotalCharges` 欄可整欄省略或個別留空（改以 tenure × MonthlyCharges 估算），`customerID` 選填並原樣帶回，其他欄位忽略。任何一列不合法即整份拒絕（`details` 只列前 20 筆，`meta.total_errors` 為總數），不做任何預測。結果依檔案原始順序；上傳內容不會被儲存。檢查順序：大小 → 副檔名／解碼 → 空檔 → 列數 → 缺欄 → 逐列驗證。",
+        "operationId": "create_batch_prediction_api_v1_predictions_batch_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "CSV 檔案（.csv，UTF-8，上限見 /api/v1/meta）"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "FILE_EMPTY",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FILE_EMPTY": {
+                    "summary": "FILE_EMPTY",
+                    "value": {
+                      "error": {
+                        "code": "FILE_EMPTY",
+                        "message": "上傳的檔案是空的，或只有表頭，請確認內容。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "FILE_TOO_LARGE、TOO_MANY_ROWS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "FILE_TOO_LARGE": {
+                    "summary": "FILE_TOO_LARGE",
+                    "value": {
+                      "error": {
+                        "code": "FILE_TOO_LARGE",
+                        "message": "檔案過大，超過上傳大小上限。",
+                        "details": [],
+                        "meta": {
+                          "max_file_bytes": 5242880
+                        },
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  },
+                  "TOO_MANY_ROWS": {
+                    "summary": "TOO_MANY_ROWS",
+                    "value": {
+                      "error": {
+                        "code": "TOO_MANY_ROWS",
+                        "message": "資料列數超過上限。",
+                        "details": [],
+                        "meta": {
+                          "max_rows": 10000,
+                          "rows": 12000
+                        },
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_FILE_TYPE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "UNSUPPORTED_FILE_TYPE": {
+                    "summary": "UNSUPPORTED_FILE_TYPE",
+                    "value": {
+                      "error": {
+                        "code": "UNSUPPORTED_FILE_TYPE",
+                        "message": "僅支援 UTF-8 編碼的 CSV 檔案。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "VALIDATION_ERROR、MISSING_COLUMNS、INVALID_ROWS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "VALIDATION_ERROR": {
+                    "summary": "VALIDATION_ERROR",
+                    "value": {
+                      "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "輸入資料有誤，請檢查標示的欄位。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  },
+                  "MISSING_COLUMNS": {
+                    "summary": "MISSING_COLUMNS",
+                    "value": {
+                      "error": {
+                        "code": "MISSING_COLUMNS",
+                        "message": "檔案缺少必要欄位。",
+                        "details": [
+                          {
+                            "field": "Contract",
+                            "type": "missing_column",
+                            "reason": "缺少必要欄位：Contract"
+                          }
+                        ],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  },
+                  "INVALID_ROWS": {
+                    "summary": "INVALID_ROWS",
+                    "value": {
+                      "error": {
+                        "code": "INVALID_ROWS",
+                        "message": "檔案中有不合法的資料列，整份檔案未處理。",
+                        "details": [
+                          {
+                            "field": "tenure",
+                            "row": 5,
+                            "type": "out_of_range",
+                            "reason": "在網月數需為 0 至 72 的整數"
+                          }
+                        ],
+                        "meta": {
+                          "total_errors": 57,
+                          "invalid_row_count": 31
+                        },
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "MODEL_UNAVAILABLE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "MODEL_UNAVAILABLE": {
+                    "summary": "MODEL_UNAVAILABLE",
+                    "value": {
+                      "error": {
+                        "code": "MODEL_UNAVAILABLE",
+                        "message": "模型尚未載入，服務暫時無法使用。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/predictions/batch/template": {
+      "get": {
+        "tags": [
+          "批次預測"
+        ],
+        "summary": "下載批次範本 CSV",
+        "description": "回傳含 UTF-8 BOM 的範本：表頭為 customerID＋19 個特徵欄，兩列範例（DEMO-HIGH 的 TotalCharges 留空示範估算、DEMO-LOW 的 TotalCharges=2100）。不依賴模型；直接上傳必定成功。",
+        "operationId": "download_batch_template_api_v1_predictions_batch_template_get",
+        "responses": {
+          "200": {
+            "description": "範本 CSV",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/model/metrics": {
+      "get": {
+        "tags": [
+          "模型成效"
+        ],
+        "summary": "模型成效",
+        "description": "回傳訓練時產生的成效資料（與 `models/metrics.json` 內容相同）：兩個模型在同一份測試集上的五項指標、混淆矩陣、ROC 曲線、資料筆數、決策門檻與不平衡處理實驗。啟動時載入記憶體，不依賴預測模型是否載入。`metrics.json` 不存在時回 404 `METRICS_NOT_FOUND`。",
+        "operationId": "get_model_metrics_api_v1_model_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "METRICS_NOT_FOUND",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "METRICS_NOT_FOUND": {
+                    "summary": "METRICS_NOT_FOUND",
+                    "value": {
+                      "error": {
+                        "code": "METRICS_NOT_FOUND",
+                        "message": "尚無模型成效資料。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "INTERNAL_ERROR": {
+                    "summary": "INTERNAL_ERROR",
+                    "value": {
+                      "error": {
+                        "code": "INTERNAL_ERROR",
+                        "message": "服務暫時無法使用，請稍後再試。",
+                        "details": [],
+                        "request_id": "6f1c2a9e-1b7d-4d1f-9a55-2b1b8f0c9d11"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BatchLimits": {
+        "properties": {
+          "max_file_bytes": {
+            "type": "integer",
+            "title": "Max File Bytes",
+            "description": "批次上傳檔案大小上限（位元組）"
+          },
+          "max_rows": {
+            "type": "integer",
+            "title": "Max Rows",
+            "description": "批次上傳資料列數上限"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_file_bytes",
+          "max_rows"
+        ],
+        "title": "BatchLimits"
+      },
+      "BatchResponse": {
+        "properties": {
+          "summary": {
+            "$ref": "#/components/schemas/BatchSummary"
+          },
+          "risk_thresholds": {
+            "$ref": "#/components/schemas/RiskThresholds"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelInfo"
+          },
+          "has_customer_id": {
+            "type": "boolean",
+            "title": "Has Customer Id",
+            "description": "檔案是否有 customerID 欄"
+          },
+          "ignored_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ignored Columns",
+            "description": "被忽略的多餘欄位名稱"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BatchRow"
+            },
+            "type": "array",
+            "title": "Results"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "risk_thresholds",
+          "model",
+          "has_customer_id",
+          "ignored_columns",
+          "results"
+        ],
+        "title": "BatchResponse",
+        "description": "批次預測結果；`results` 依檔案原始順序。",
+        "examples": [
+          {
+            "has_customer_id": true,
+            "ignored_columns": [],
+            "model": {
+              "display_name": "Keras 神經網路",
+              "name": "keras_mlp",
+              "trained_at": "2026-11-20T08:00:00Z",
+              "version": "20261120-a1b2c3d4"
+            },
+            "results": [
+              {
+                "customer_id": "DEMO-HIGH",
+                "input": {
+                  "Contract": "Month-to-month",
+                  "Dependents": "No",
+                  "DeviceProtection": "No",
+                  "InternetService": "Fiber optic",
+                  "MonthlyCharges": 100.0,
+                  "MultipleLines": "No",
+                  "OnlineBackup": "No",
+                  "OnlineSecurity": "No",
+                  "PaperlessBilling": "Yes",
+                  "Partner": "No",
+                  "PaymentMethod": "Electronic check",
+                  "PhoneService": "Yes",
+                  "SeniorCitizen": 0,
+                  "StreamingMovies": "Yes",
+                  "StreamingTV": "Yes",
+                  "TechSupport": "No",
+                  "gender": "Female",
+                  "tenure": 1
+                },
+                "probability": 0.724,
+                "risk_level": "high",
+                "row": 2,
+                "total_charges_estimated": true
+              }
+            ],
+            "risk_thresholds": {
+              "high": 0.6,
+              "medium": 0.3
+            },
+            "summary": {
+              "estimated_total_charges": 1,
+              "high": 1,
+              "low": 1,
+              "medium": 0,
+              "total": 2
+            }
+          }
+        ]
+      },
+      "BatchRow": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row",
+            "description": "Excel 列號（表頭為第 1 列，第一筆資料為第 2 列）"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id",
+            "description": "customerID 欄的值；沒有該欄或空白為 null"
+          },
+          "probability": {
+            "type": "number",
+            "title": "Probability",
+            "description": "流失機率（0–1，3 位小數）"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Risk Level"
+          },
+          "total_charges_estimated": {
+            "type": "boolean",
+            "title": "Total Charges Estimated",
+            "description": "該列累計費用是否為估算值"
+          },
+          "input": {
+            "$ref": "#/components/schemas/CustomerFeatures",
+            "description": "該列 19 個特徵的正規化後值；TotalCharges 為原始值，空白則為 null"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "customer_id",
+          "probability",
+          "risk_level",
+          "total_charges_estimated",
+          "input"
+        ],
+        "title": "BatchRow"
+      },
+      "BatchSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "總筆數"
+          },
+          "high": {
+            "type": "integer",
+            "title": "High",
+            "description": "高風險筆數"
+          },
+          "medium": {
+            "type": "integer",
+            "title": "Medium",
+            "description": "中風險筆數"
+          },
+          "low": {
+            "type": "integer",
+            "title": "Low",
+            "description": "低風險筆數"
+          },
+          "estimated_total_charges": {
+            "type": "integer",
+            "title": "Estimated Total Charges",
+            "description": "累計費用為估算值的筆數"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "high",
+          "medium",
+          "low",
+          "estimated_total_charges"
+        ],
+        "title": "BatchSummary"
+      },
+      "ConfusionMatrix": {
+        "properties": {
+          "tn": {
+            "type": "integer",
+            "title": "Tn"
+          },
+          "fp": {
+            "type": "integer",
+            "title": "Fp"
+          },
+          "fn": {
+            "type": "integer",
+            "title": "Fn"
+          },
+          "tp": {
+            "type": "integer",
+            "title": "Tp"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "tn",
+          "fp",
+          "fn",
+          "tp"
+        ],
+        "title": "ConfusionMatrix"
+      },
+      "CustomerFeatures": {
+        "properties": {
+          "gender": {
+            "type": "string",
+            "enum": [
+              "Female",
+              "Male"
+            ],
+            "title": "Gender",
+            "description": "性別"
+          },
+          "SeniorCitizen": {
+            "type": "integer",
+            "title": "Seniorcitizen",
+            "description": "是否為年長者（65 歲以上）：0＝否、1＝是（嚴格整數）"
+          },
+          "Partner": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ],
+            "title": "Partner",
+            "description": "有無配偶"
+          },
+          "Dependents": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ],
+            "title": "Dependents",
+            "description": "有無撫養對象"
+          },
+          "tenure": {
+            "type": "integer",
+            "maximum": 72.0,
+            "minimum": 0.0,
+            "title": "Tenure",
+            "description": "在網月數，0 至 72 的整數（嚴格整數，10.5、\"10\" 皆拒絕）"
+          },
+          "PhoneService": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ],
+            "title": "Phoneservice",
+            "description": "電話服務"
+          },
+          "MultipleLines": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No phone service"
+            ],
+            "title": "Multiplelines",
+            "description": "多線電話；PhoneService=No 時必須為 No phone service，反之亦然"
+          },
+          "InternetService": {
+            "type": "string",
+            "enum": [
+              "DSL",
+              "Fiber optic",
+              "No"
+            ],
+            "title": "Internetservice",
+            "description": "網路服務"
+          },
+          "OnlineSecurity": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No internet service"
+            ],
+            "title": "Onlinesecurity",
+            "description": "線上安全服務"
+          },
+          "OnlineBackup": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No internet service"
+            ],
+            "title": "Onlinebackup",
+            "description": "線上備份服務"
+          },
+          "DeviceProtection": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No internet service"
+            ],
+            "title": "Deviceprotection",
+            "description": "裝置保護服務"
+          },
+          "TechSupport": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No internet service"
+            ],
+            "title": "Techsupport",
+            "description": "技術支援服務"
+          },
+          "StreamingTV": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No internet service"
+            ],
+            "title": "Streamingtv",
+            "description": "串流電視"
+          },
+          "StreamingMovies": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No",
+              "No internet service"
+            ],
+            "title": "Streamingmovies",
+            "description": "串流電影"
+          },
+          "Contract": {
+            "type": "string",
+            "enum": [
+              "Month-to-month",
+              "One year",
+              "Two year"
+            ],
+            "title": "Contract",
+            "description": "合約類型"
+          },
+          "PaperlessBilling": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ],
+            "title": "Paperlessbilling",
+            "description": "電子帳單"
+          },
+          "PaymentMethod": {
+            "type": "string",
+            "enum": [
+              "Electronic check",
+              "Mailed check",
+              "Bank transfer (automatic)",
+              "Credit card (automatic)"
+            ],
+            "title": "Paymentmethod",
+            "description": "付款方式"
+          },
+          "MonthlyCharges": {
+            "type": "number",
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Monthlycharges",
+            "description": "月費，0 至 200（數字型別，字串拒絕）"
+          },
+          "TotalCharges": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Totalcharges",
+            "description": "累計費用，0 至 10,000；省略或 null 時以 tenure × MonthlyCharges 估算（估算值亦須 ≤ 10,000）。手填值與估算值皆 half-up 取到 2 位小數"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "gender",
+          "SeniorCitizen",
+          "Partner",
+          "Dependents",
+          "tenure",
+          "PhoneService",
+          "MultipleLines",
+          "InternetService",
+          "OnlineSecurity",
+          "OnlineBackup",
+          "DeviceProtection",
+          "TechSupport",
+          "StreamingTV",
+          "StreamingMovies",
+          "Contract",
+          "PaperlessBilling",
+          "PaymentMethod",
+          "MonthlyCharges"
+        ],
+        "title": "CustomerFeatures",
+        "description": "單筆顧客特徵（19 欄；`TotalCharges` 可省略或為 null，改以 tenure × MonthlyCharges 估算）。",
+        "examples": [
+          {
+            "Contract": "Month-to-month",
+            "Dependents": "No",
+            "DeviceProtection": "No",
+            "InternetService": "Fiber optic",
+            "MonthlyCharges": 100.0,
+            "MultipleLines": "No",
+            "OnlineBackup": "No",
+            "OnlineSecurity": "No",
+            "PaperlessBilling": "Yes",
+            "Partner": "No",
+            "PaymentMethod": "Electronic check",
+            "PhoneService": "Yes",
+            "SeniorCitizen": 0,
+            "StreamingMovies": "Yes",
+            "StreamingTV": "Yes",
+            "TechSupport": "No",
+            "gender": "Female",
+            "tenure": 1
+          },
+          {
+            "Contract": "Two year",
+            "Dependents": "Yes",
+            "DeviceProtection": "No internet service",
+            "InternetService": "No",
+            "MonthlyCharges": 30.0,
+            "MultipleLines": "Yes",
+            "OnlineBackup": "No internet service",
+            "OnlineSecurity": "No internet service",
+            "PaperlessBilling": "No",
+            "Partner": "Yes",
+            "PaymentMethod": "Credit card (automatic)",
+            "PhoneService": "Yes",
+            "SeniorCitizen": 0,
+            "StreamingMovies": "No internet service",
+            "StreamingTV": "No internet service",
+            "TechSupport": "No internet service",
+            "TotalCharges": 2100.0,
+            "gender": "Male",
+            "tenure": 70
+          }
+        ]
+      },
+      "DatasetInfo": {
+        "properties": {
+          "train_size": {
+            "type": "integer",
+            "title": "Train Size"
+          },
+          "validation_size": {
+            "type": "integer",
+            "title": "Validation Size"
+          },
+          "test_size": {
+            "type": "integer",
+            "title": "Test Size"
+          },
+          "test_churn_rate": {
+            "type": "number",
+            "title": "Test Churn Rate",
+            "description": "測試集流失比例（0–1）"
+          },
+          "majority_class_accuracy": {
+            "type": "number",
+            "title": "Majority Class Accuracy",
+            "description": "1 − test_churn_rate（全猜不流失的 Accuracy）"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "train_size",
+          "validation_size",
+          "test_size",
+          "test_churn_rate",
+          "majority_class_accuracy"
+        ],
+        "title": "DatasetInfo"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "機器判斷用的錯誤碼",
+            "examples": [
+              "VALIDATION_ERROR"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "繁體中文訊息，不含路徑或堆疊"
+          },
+          "details": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorDetail"
+            },
+            "type": "array",
+            "title": "Details",
+            "description": "欄位／列級錯誤，可為空陣列"
+          },
+          "meta": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meta",
+            "description": "補充資訊（例如上限值、錯誤總數）"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "description": "與 X-Request-ID 回應標頭相同，方便對照 log"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "details",
+          "meta",
+          "request_id"
+        ],
+        "title": "ErrorBody"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field",
+            "description": "原始欄名；整份檔案層級的錯誤為 null"
+          },
+          "row": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row",
+            "description": "批次才有，與 Excel 列號一致；單筆為 null"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "invalid_type",
+              "invalid_choice",
+              "out_of_range",
+              "inconsistent",
+              "extra_field",
+              "missing_column"
+            ],
+            "title": "Type",
+            "description": "錯誤類型"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "繁體中文的具體原因"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "row",
+          "type",
+          "reason"
+        ],
+        "title": "ErrorDetail",
+        "description": "欄位或列級錯誤。"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "description": "所有非 2xx 回應的統一格式。"
+      },
+      "Explanation": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "const": "integrated_gradients",
+            "title": "Method",
+            "default": "integrated_gradients"
+          },
+          "baseline_probability": {
+            "type": "number",
+            "title": "Baseline Probability",
+            "description": "「平均顧客」的流失機率"
+          }
+        },
+        "type": "object",
+        "required": [
+          "baseline_probability"
+        ],
+        "title": "Explanation"
+      },
+      "Factor": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature",
+            "description": "原始欄名，只作前端 key，不顯示"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "中文顯示名，格式「欄位中文：值中文」"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "increase",
+              "decrease"
+            ],
+            "title": "Direction",
+            "description": "increase＝推高風險；decrease＝拉低風險"
+          },
+          "impact": {
+            "type": "number",
+            "title": "Impact",
+            "description": "帶正負號的機率影響值（3 位小數）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature",
+          "label",
+          "direction",
+          "impact"
+        ],
+        "title": "Factor"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "model_loaded": {
+            "type": "boolean",
+            "title": "Model Loaded",
+            "description": "模型是否已載入"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelInfo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_loaded",
+          "model"
+        ],
+        "title": "HealthResponse",
+        "description": "健康檢查（模型已載入）。",
+        "examples": [
+          {
+            "model": {
+              "display_name": "Keras 神經網路",
+              "name": "keras_mlp",
+              "trained_at": "2026-11-20T08:00:00Z",
+              "version": "20261120-a1b2c3d4"
+            },
+            "model_loaded": true,
+            "status": "ok"
+          }
+        ]
+      },
+      "ImbalanceExperimentRow": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "enum": [
+              "logistic_regression",
+              "keras_mlp"
+            ],
+            "title": "Model"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "none",
+              "class_weight"
+            ],
+            "title": "Strategy"
+          },
+          "threshold_rule": {
+            "type": "string",
+            "enum": [
+              "default_0.5",
+              "tuned"
+            ],
+            "title": "Threshold Rule"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          },
+          "recall": {
+            "type": "number",
+            "title": "Recall"
+          },
+          "precision": {
+            "type": "number",
+            "title": "Precision"
+          },
+          "roc_auc": {
+            "type": "number",
+            "title": "Roc Auc"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "strategy",
+          "threshold_rule",
+          "threshold",
+          "recall",
+          "precision",
+          "roc_auc"
+        ],
+        "title": "ImbalanceExperimentRow"
+      },
+      "InputRanges": {
+        "properties": {
+          "tenure": {
+            "$ref": "#/components/schemas/NumericRange"
+          },
+          "MonthlyCharges": {
+            "$ref": "#/components/schemas/NumericRange"
+          },
+          "TotalCharges": {
+            "$ref": "#/components/schemas/NumericRange"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenure",
+          "MonthlyCharges",
+          "TotalCharges"
+        ],
+        "title": "InputRanges"
+      },
+      "MetaResponse": {
+        "properties": {
+          "risk_thresholds": {
+            "$ref": "#/components/schemas/RiskThresholds"
+          },
+          "batch_limits": {
+            "$ref": "#/components/schemas/BatchLimits"
+          },
+          "input_ranges": {
+            "$ref": "#/components/schemas/InputRanges"
+          }
+        },
+        "type": "object",
+        "required": [
+          "risk_thresholds",
+          "batch_limits",
+          "input_ranges"
+        ],
+        "title": "MetaResponse",
+        "description": "前端需要的設定；不依賴模型是否載入。",
+        "examples": [
+          {
+            "batch_limits": {
+              "max_file_bytes": 5242880,
+              "max_rows": 10000
+            },
+            "input_ranges": {
+              "MonthlyCharges": {
+                "max": 200,
+                "min": 0
+              },
+              "TotalCharges": {
+                "max": 10000,
+                "min": 0
+              },
+              "tenure": {
+                "max": 72,
+                "min": 0
+              }
+            },
+            "risk_thresholds": {
+              "high": 0.6,
+              "medium": 0.3
+            }
+          }
+        ]
+      },
+      "MetricsResponse": {
+        "properties": {
+          "primary_model": {
+            "type": "string",
+            "title": "Primary Model"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "trained_at": {
+            "type": "string",
+            "title": "Trained At"
+          },
+          "random_seed": {
+            "type": "integer",
+            "title": "Random Seed"
+          },
+          "imbalance_strategy": {
+            "type": "string",
+            "enum": [
+              "threshold_tuning",
+              "class_weight"
+            ],
+            "title": "Imbalance Strategy"
+          },
+          "target_recall": {
+            "type": "number",
+            "title": "Target Recall"
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/DatasetInfo"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelResult"
+            },
+            "type": "array",
+            "title": "Models",
+            "description": "恰 2 筆：logistic_regression、keras_mlp"
+          },
+          "decision_threshold": {
+            "type": "number",
+            "title": "Decision Threshold",
+            "description": "主模型（keras_mlp）的決策門檻"
+          },
+          "imbalance_experiment": {
+            "items": {
+              "$ref": "#/components/schemas/ImbalanceExperimentRow"
+            },
+            "type": "array",
+            "title": "Imbalance Experiment"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "primary_model",
+          "model_version",
+          "trained_at",
+          "random_seed",
+          "imbalance_strategy",
+          "target_recall",
+          "dataset",
+          "models",
+          "decision_threshold",
+          "imbalance_experiment",
+          "warnings"
+        ],
+        "title": "MetricsResponse",
+        "description": "成效頁資料（＝ models/metrics.json）。"
+      },
+      "ModelInfo": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "模型代號",
+            "examples": [
+              "keras_mlp"
+            ]
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name",
+            "description": "畫面顯示名稱",
+            "examples": [
+              "Keras 神經網路"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "模型版本（YYYYMMDD-雜湊前 8 碼）",
+            "examples": [
+              "20261120-a1b2c3d4"
+            ]
+          },
+          "trained_at": {
+            "type": "string",
+            "title": "Trained At",
+            "description": "訓練時間（ISO 8601 UTC）",
+            "examples": [
+              "2026-11-20T08:00:00Z"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "display_name",
+          "version",
+          "trained_at"
+        ],
+        "title": "ModelInfo",
+        "description": "預測所用模型的資訊。"
+      },
+      "ModelMetrics": {
+        "properties": {
+          "roc_auc": {
+            "type": "number",
+            "title": "Roc Auc"
+          },
+          "precision": {
+            "type": "number",
+            "title": "Precision"
+          },
+          "recall": {
+            "type": "number",
+            "title": "Recall"
+          },
+          "f1": {
+            "type": "number",
+            "title": "F1"
+          },
+          "accuracy": {
+            "type": "number",
+            "title": "Accuracy"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "roc_auc",
+          "precision",
+          "recall",
+          "f1",
+          "accuracy"
+        ],
+        "title": "ModelMetrics"
+      },
+      "ModelResult": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": [
+              "logistic_regression",
+              "keras_mlp"
+            ],
+            "title": "Key"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "decision_threshold": {
+            "type": "number",
+            "title": "Decision Threshold"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/ModelMetrics"
+          },
+          "confusion_matrix": {
+            "$ref": "#/components/schemas/ConfusionMatrix"
+          },
+          "roc_curve": {
+            "$ref": "#/components/schemas/RocCurve"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "display_name",
+          "decision_threshold",
+          "metrics",
+          "confusion_matrix",
+          "roc_curve"
+        ],
+        "title": "ModelResult"
+      },
+      "NumericRange": {
+        "properties": {
+          "min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Min",
+            "description": "下限（含）"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Max",
+            "description": "上限（含）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min",
+          "max"
+        ],
+        "title": "NumericRange"
+      },
+      "PredictionResponse": {
+        "properties": {
+          "probability": {
+            "type": "number",
+            "title": "Probability",
+            "description": "流失機率（0–1，3 位小數）"
+          },
+          "risk_level": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ],
+            "title": "Risk Level",
+            "description": "依四捨五入後的機率判定"
+          },
+          "risk_thresholds": {
+            "$ref": "#/components/schemas/RiskThresholds"
+          },
+          "model": {
+            "$ref": "#/components/schemas/ModelInfo"
+          },
+          "total_charges": {
+            "$ref": "#/components/schemas/TotalChargesInfo"
+          },
+          "top_factors": {
+            "items": {
+              "$ref": "#/components/schemas/Factor"
+            },
+            "type": "array",
+            "title": "Top Factors",
+            "description": "恰 5 筆，依 abs(impact) 由大到小"
+          },
+          "explanation": {
+            "$ref": "#/components/schemas/Explanation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "probability",
+          "risk_level",
+          "risk_thresholds",
+          "model",
+          "total_charges",
+          "top_factors",
+          "explanation"
+        ],
+        "title": "PredictionResponse",
+        "description": "單筆預測結果：機率、等級、切點、模型資訊、累計費用資訊與前 5 大因素。",
+        "examples": [
+          {
+            "explanation": {
+              "baseline_probability": 0.231,
+              "method": "integrated_gradients"
+            },
+            "model": {
+              "display_name": "Keras 神經網路",
+              "name": "keras_mlp",
+              "trained_at": "2026-11-20T08:00:00Z",
+              "version": "20261120-a1b2c3d4"
+            },
+            "probability": 0.724,
+            "risk_level": "high",
+            "risk_thresholds": {
+              "high": 0.6,
+              "medium": 0.3
+            },
+            "top_factors": [
+              {
+                "direction": "increase",
+                "feature": "Contract",
+                "impact": 0.183,
+                "label": "合約類型：月繳"
+              },
+              {
+                "direction": "increase",
+                "feature": "tenure",
+                "impact": 0.142,
+                "label": "在網月數：1 個月"
+              },
+              {
+                "direction": "increase",
+                "feature": "InternetService",
+                "impact": 0.095,
+                "label": "網路服務：光纖"
+              },
+              {
+                "direction": "increase",
+                "feature": "PaymentMethod",
+                "impact": 0.061,
+                "label": "付款方式：電子支票"
+              },
+              {
+                "direction": "increase",
+                "feature": "TechSupport",
+                "impact": 0.033,
+                "label": "技術支援服務：無"
+              }
+            ],
+            "total_charges": {
+              "is_estimated": true,
+              "value": 100.0
+            }
+          }
+        ]
+      },
+      "RiskThresholds": {
+        "properties": {
+          "medium": {
+            "type": "number",
+            "title": "Medium",
+            "description": "中風險下限",
+            "examples": [
+              0.3
+            ]
+          },
+          "high": {
+            "type": "number",
+            "title": "High",
+            "description": "高風險下限",
+            "examples": [
+              0.6
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "medium",
+          "high"
+        ],
+        "title": "RiskThresholds",
+        "description": "風險分級切點：p < medium 為低；medium <= p < high 為中；p >= high 為高。"
+      },
+      "RocCurve": {
+        "properties": {
+          "fpr": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Fpr"
+          },
+          "tpr": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Tpr"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "fpr",
+          "tpr"
+        ],
+        "title": "RocCurve"
+      },
+      "TotalChargesInfo": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "實際用於預測的累計費用（half-up 到 2 位小數）"
+          },
+          "is_estimated": {
+            "type": "boolean",
+            "title": "Is Estimated",
+            "description": "是否為估算值（tenure × MonthlyCharges）"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "is_estimated"
+        ],
+        "title": "TotalChargesInfo"
+      }
+    }
+  }
+}

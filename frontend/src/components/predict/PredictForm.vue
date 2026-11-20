@@ -19,6 +19,8 @@ import { usePredictionStore } from '../../stores/prediction'
 
 // 驗證通過後送出整組表單值；呼叫 API 由上層（T9）處理
 const emit = defineEmits<{ submit: [values: FormValues] }>()
+// 送出中：按鈕 loading、所有欄位暫時 disabled，避免中途修改（ui.md 3.3）
+const props = withDefaults(defineProps<{ loading?: boolean }>(), { loading: false })
 
 const store = usePredictionStore()
 const rootRef = ref<HTMLElement | null>(null)
@@ -102,6 +104,7 @@ async function focusFirstError(): Promise<void> {
 }
 
 async function onSubmit(): Promise<void> {
+  if (props.loading) return
   if (!store.validate()) {
     await focusFirstError()
     return
@@ -116,8 +119,12 @@ async function onSubmit(): Promise<void> {
       <p class="predict-form__required-note">標示 * 的欄位必填</p>
       <div class="predict-form__examples" role="group" aria-label="載入範例">
         <span class="predict-form__examples-label">載入範例：</span>
-        <el-button native-type="button" plain @click="loadExample('high')">高風險範例</el-button>
-        <el-button native-type="button" plain @click="loadExample('low')">低風險範例</el-button>
+        <el-button native-type="button" plain :disabled="loading" @click="loadExample('high')"
+          >高風險範例</el-button
+        >
+        <el-button native-type="button" plain :disabled="loading" @click="loadExample('low')"
+          >低風險範例</el-button
+        >
       </div>
     </div>
 
@@ -153,7 +160,7 @@ async function onSubmit(): Promise<void> {
                   v-if="field.control === 'radio'"
                   class="field-radio"
                   :model-value="store.values[field.name] ?? undefined"
-                  :disabled="lockState(field.name) !== 'free'"
+                  :disabled="loading || lockState(field.name) !== 'free'"
                   :aria-describedby="describedBy(field)"
                   @update:model-value="(v: unknown) => onChange(field.name, v as FieldValue)"
                 >
@@ -165,6 +172,7 @@ async function onSubmit(): Promise<void> {
                 <el-select
                   v-else-if="field.control === 'select'"
                   placeholder="請選擇"
+                  :disabled="loading"
                   :model-value="store.values[field.name] ?? undefined"
                   @update:model-value="(v: FieldValue) => onChange(field.name, v)"
                 >
@@ -180,6 +188,7 @@ async function onSubmit(): Promise<void> {
                   v-else
                   class="field-number"
                   controls-position="right"
+                  :disabled="loading"
                   :model-value="(store.values[field.name] as number | null) ?? undefined"
                   :precision="field.number?.precision"
                   :step="field.number?.step"
@@ -206,8 +215,18 @@ async function onSubmit(): Promise<void> {
       </el-card>
 
       <div class="form-actions">
-        <el-button native-type="button" size="large" plain @click="onClear">清除</el-button>
-        <el-button type="primary" size="large" native-type="submit">預測</el-button>
+        <el-button native-type="button" size="large" plain :disabled="loading" @click="onClear">
+          清除
+        </el-button>
+        <el-button
+          type="primary"
+          size="large"
+          native-type="submit"
+          :loading="loading"
+          :disabled="loading"
+        >
+          {{ loading ? '預測中…' : '預測' }}
+        </el-button>
       </div>
     </el-form>
   </div>

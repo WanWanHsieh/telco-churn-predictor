@@ -25,8 +25,14 @@ declare module 'vue' {
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
     ElRow: typeof import('element-plus/es')['ElRow']
     ElSelect: typeof import('element-plus/es')['ElSelect']
+    ElSkeleton: typeof import('element-plus/es')['ElSkeleton']
+    FactorList: typeof import('./src/components/predict/FactorList.vue')['default']
     PredictForm: typeof import('./src/components/predict/PredictForm.vue')['default']
+    PredictionResult: typeof import('./src/components/predict/PredictionResult.vue')['default']
+    ProbabilityScale: typeof import('./src/components/predict/ProbabilityScale.vue')['default']
+    RiskBadge: typeof import('./src/components/common/RiskBadge.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    ServiceError: typeof import('./src/components/common/ServiceError.vue')['default']
   }
 }
