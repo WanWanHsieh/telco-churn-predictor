@@ -1,0 +1,103 @@
+/* 主題變數（ui.md 8.1）：以 Element Plus 預設為底，只覆寫會影響對比的顏色。
+   用 html:root 提高優先度，確保蓋過 Element Plus 的 :root 變數。 */
+html:root {
+  --el-color-primary: #2563eb;
+  --el-color-primary-light-3: #6692f1;
+  --el-color-primary-light-5: #92b1f5;
+  --el-color-primary-light-7: #bed0f9;
+  --el-color-primary-light-8: #d3e0fb;
+  --el-color-primary-light-9: #e9effd;
+  --el-color-primary-dark-2: #1e4fbc;
+
+  --el-text-color-primary: #1f2937;
+  --el-text-color-regular: #1f2937;
+  --el-text-color-secondary: #4b5563;
+  --el-text-color-placeholder: #6b7280;
+  --el-bg-color-page: #f5f7fa;
+  --el-border-color: #dcdfe6;
+
+  /* 風險等級（底／字／邊） */
+  --risk-low-bg: #e8f5ec;
+  --risk-low-text: #17633a;
+  --risk-low-border: #8fd0a6;
+  --risk-medium-bg: #fff4db;
+  --risk-medium-text: #8a5a00;
+  --risk-medium-border: #e8c16a;
+  --risk-high-bg: #fdecea;
+  --risk-high-text: #b42318;
+  --risk-high-border: #f0a59e;
+
+  /* 影響方向長條 */
+  --bar-up: #b42318;
+  --bar-down: #17633a;
+
+  --font-family-base:
+    -apple-system, 'Segoe UI', 'Noto Sans TC', 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --el-font-family: var(--font-family-base);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+  font-family: var(--font-family-base);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+
+/* 焦點框加粗至 2px，不使用 outline: none */
+:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 手機輸入框字級 >= 16px，避免 iOS 自動放大 */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea,
+  .el-input__inner,
+  .el-select__selected-item {
+    font-size: 16px;
+  }
+}
+
+/* 尊重 prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

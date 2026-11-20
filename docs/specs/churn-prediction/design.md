@@ -3,7 +3,8 @@
 - 功能代號：churn-prediction
 - 依據：`requirements.md`（F1–F6、AC、NFR、第 9 節已決定事項）、`ui.md`（第 9 節 API 欄位需求、第 10 節 AC 對照）、主管派工單「已決定的事」
 - 文件狀態：使用者已確認（2026-11-20：第 14 節 Q1–Q4 皆採推薦、安裝清單已同意）
-- 修訂：2026-11-20 依使用者實測環境改為 Python 3.14.8、鎖定 tensorflow 2.22.0rc0／keras-nightly 3.16.0.dev2026101704／numpy 2.5.4／pandas 3.0.6、Node 22；新增 3.2.1 版本鎖定原則、R11、ADR-0008；R8、第 10.2／10.3 節、第 14 節安裝清單同步修改
+- 修訂：2026-11-20 依使用者實測環境改為 Python 3.14.8、鎖定 tensorflow 2.22.0rc0／keras-nightly 3.16.0.dev2026101704／numpy 2.5.4／pandas 3.0.6、Node 22；新增 3.2.1 版本鎖定原則、R11、ADR-0008；R8、第 10.2／10.3 節、第 14 節安裝清單同步修改；同日補入 T1 實際鎖定版本與偏離（3.2.1），R11 標為已驗證
+- 修訂：2026-11-20（審核 T2/T8 發現缺口，使用者決定）TotalCharges 估算值須 ≤ 10,000，超過回 422（`field=TotalCharges`）、前端不送出；手填與估算值一律 half-up 四捨五入 2 位小數後才進前處理（1.4、4.2 步驟 5、5.2、6.2、6.5.3）；修正 5.2 類別欄位數為 15 個（41 維）
 - 本文件第 6 節「API 合約」是前後端**唯一合約**；欄位名稱、型別、必填、錯誤碼一律以此為準，實作時若需修改須先回報。
 
 ---
@@ -77,7 +78,7 @@ flowchart LR
 ### 1.4 資料流（單筆預測）
 1. 前端送 `POST /api/v1/predictions`（19 欄，TotalCharges 可省略／null）。
 2. Pydantic 嚴格驗證（型別、列舉、範圍、電話／網路連動一致性）→ 不合法回 422。
-3. Service：`churn_core.impute_total_charges` 補值並記錄 `is_estimated` → `Preprocessor.transform` 得 45 維向量。
+3. Service：`churn_core.impute_total_charges` 補值並記錄 `is_estimated`，手填值與估算值一律 half-up 四捨五入到 2 位小數；估算值 > 10,000 → 422（6.2）→ `Preprocessor.transform` 得 45 維向量。
 4. `ModelRunner.predict_proba` 得機率 → 四捨五入到 3 位小數 → 依切點分級。
 5. `Explainer.attribute`（IG）得 45 維歸因 → 依原始欄位加總為 19 個因素 → 取絕對值前 5 → 以 `churn_core.labels` 產生中文名稱。
 6. 一次回傳機率、等級、切點、模型資訊、TotalCharges 估算資訊、前 5 因素（AC-2.6）。
@@ -213,8 +214,29 @@ FastAPI、TensorFlow/Keras（主模型）、scikit-learn 邏輯迴歸（基準�
 | keras-nightly（提供 `import keras`） | 3.16.0.dev2026101704 | `keras-nightly==3.16.0.dev2026101704`（`ml`、`backend`）；主管已唯讀確認本機發行名稱即 `keras-nightly`，且 tensorflow 2.22.0rc0 依賴的就是 `keras-nightly`，無命名衝突。**不得**另宣告 `keras` 套件 | 同上 |
 | numpy | 2.5.4 | `==2.5.4`（`core`） | 同上 |
 | pandas | 3.0.6 | `==3.0.6`（`core`） | 同上 |
-| scikit-learn、fastapi、uvicorn[standard]、pydantic-settings、python-multipart、dev 工具 | 由 T1 選擇「有 cp314 wheel、且與上列鎖定版本相容」的最新穩定版，並在 `pyproject.toml` 以 `==` 鎖定 | `==`，實際版本由 T1 回報後補入本表 | 新安裝（僅裝進專案 `.venv`） |
+| scikit-learn | 1.9.1 | `==`（僅 `ml`） | T1 新安裝（僅 `.venv`） |
+| fastapi | 0.165.0 | `==`（`backend`） | T1 新安裝 |
+| uvicorn[standard] | 0.54.0 | `==`（`backend`） | T1 新安裝 |
+| pydantic-settings | 2.16.3 | `==`（`backend`） | T1 新安裝 |
+| python-multipart | 0.0.34 | `==`（`backend`） | T1 新安裝 |
+| dev：ruff／mypy／pytest／pytest-cov／httpx／pandas-stubs | 0.17.6／2.4.1／9.2.0／7.1.0／0.28.1／3.1.0.261029 | `==`（根 dev 群組） | T1 新安裝 |
 | matplotlib | 3.11.2 | 不列為專案依賴（本專案不需要） | 本機已安裝，不使用 |
+
+**前端套件實際鎖定版本（T1，2026-11-20；`package-lock.json` 為準）**
+
+| 類別 | 套件與版本 |
+|---|---|
+| runtime | vue 3.5.46、vue-router 5.5.1、pinia 4.1.0、element-plus 2.14.8、chart.js 4.6.1、vue-chartjs 5.3.7 |
+| dev | vite 8.3.8、@vitejs/plugin-vue 6.0.11、typescript 5.9.3、vue-tsc 3.3.14、vitest 5.1.1、@vue/test-utils 2.6.0、jsdom 31.0.1、eslint 10.15.0、eslint-plugin-vue 10.12.1、typescript-eslint 8.73.0、@vue/eslint-config-typescript 14.9.0、@vue/eslint-config-prettier 10.2.0、prettier 3.10.1、unplugin-vue-components 32.1.0、unplugin-auto-import 21.1.0、openapi-typescript 7.13.0、@playwright/test 1.65.1 |
+
+- TypeScript 取 5.9.3（非最新 7.0.2）：typescript-eslint 8.73.0 要求 `<6.1.0`，openapi-typescript 7.13.0 要求 `^5.x`，最新版與兩者衝突。
+
+**T1 實作時的偏離與補充（主管已核對）**
+- `tf.__version__` 顯示為 `2.22.0-rc0`，與 PyPI 版本 `2.22.0rc0` 等同（PEP 440 正規化）；版本斷言測試以正規化後比對。
+- ruff 忽略 `RUF001`–`RUF003`：繁中字串與註解大量使用全形標點，屬刻意。
+- workspace 成員的 build backend 使用 `uv_build`。
+- unplugin 產生的 `frontend/auto-imports.d.ts`、`frontend/components.d.ts` 進版控（讓 `vue-tsc` 與 CI 不必先跑 dev server）。
+- 未安裝 `@types/node`，因此前端**不使用 `@` 路徑別名**，一律相對路徑 import。
 
 - 預發行版本解析：直接依賴以 `==` 精確指定預發行版本時 uv 會接受；不另開全域 `prerelease = "allow"`，避免其他套件被解析成預發行版。
 - 若 uv 解析時要求更動上列任一鎖定版本（例如新套件要求不同的 numpy／pandas 版本），**停下回報主管**，不得自行改版本或改套件名稱。
@@ -260,7 +282,7 @@ IG 規格（實作依據）：
 | 2 | 讀檔 | 檔案不存在 → 印出「找不到資料檔，請從 Kaggle 下載並放到 data/raw/」＋下載網址（https://www.kaggle.com/datasets/blastchar/telco-customer-churn），exit code 2，不印堆疊（CLI 層攔截自訂例外 `DataFileNotFoundError`） | AC-4.2 |
 | 3 | 結構檢查 | 欄位齊全、類別值皆在合法集合內，否則友善錯誤 exit 2 | — |
 | 4 | 清理 | `churn_core.cleaning.clean_raw_frame`：所有字串 `strip()`；TotalCharges 空字串→NaN→`float`；Churn Yes/No→1/0；移除 `customerID`；回傳 `CleaningReport(total_charges_blank=11, rows=7043)` 並寫入 log 與 manifest | AC-4.3、AC-4.7 |
-| 5 | 估算 | `churn_core.imputation.impute_total_charges`：NaN → `tenure × MonthlyCharges`（訓練中 11 筆皆得 0） | AC-4.3、ADR-0003 |
+| 5 | 估算 | `churn_core.imputation.impute_total_charges`：NaN → `tenure × MonthlyCharges`（訓練中 11 筆皆得 0）；所有 TotalCharges（含原值）half-up 四捨五入到 2 位小數，與推論同一函式（原始資料最多 2 位小數，對訓練資料為無變化操作；訓練資料不做 10,000 上限檢查，原始最大值約 8,700） | AC-4.3、ADR-0003、NFR-6 |
 | 6 | 切分 | `train_test_split(stratify=y, test_size=0.2)` → 測試集（1,409 筆）**封存**；剩餘 80% 再 `stratify` 切出 20% 為驗證集 → 訓練子集約 4,507、驗證約 1,127、測試 1,409 | AC-4.4 |
 | 7 | 擬合前處理 | `Preprocessor.fit(訓練子集)`：只學數值欄位的平均與標準差；類別清單來自 `schema.py` 固定順序（不從資料學，避免切分造成欄位不同） | AC-4.4（測試集不參與擬合） |
 | 8 | 訓練 LR | `LogisticRegression(C=1.0, max_iter=1000, solver="lbfgs", random_state=seed)` | AC-3.1 |
@@ -318,7 +340,7 @@ IG 規格（實作依據）：
   "feature_groups": { "gender": [0, 1], "...": [], "tenure": [42] }
 }
 ```
-（數字為示意。）特徵數：16 個類別欄位 one-hot 共 41 維＋SeniorCitizen 1 維＋3 個數值 = **45 維**。`transform` 遇到未知類別直接 `ValueError`（API 層已先驗證，正常不會發生）。數值以 float64 計算後轉 float32。
+（數字為示意。）特徵數：15 個類別欄位 one-hot 共 41 維（2026-11-20 修正：原誤寫 16 個）＋SeniorCitizen 1 維＋3 個數值 = **45 維**。`transform` 遇到未知類別直接 `ValueError`（API 層已先驗證，正常不會發生）。數值以 float64 計算後轉 float32。
 
 ### 5.3 後端載入（`inference/artifacts.py`）
 1. 讀 `MODEL_DIR/manifest.json`；逐檔比對 SHA-256（防止只換了一半檔案）。
@@ -360,13 +382,18 @@ IG 規格（實作依據）：
 | PaperlessBilling | string enum | 是 | `Yes`、`No` |
 | PaymentMethod | string enum | 是 | `Electronic check`、`Mailed check`、`Bank transfer (automatic)`、`Credit card (automatic)` |
 | MonthlyCharges | number | 是 | 0–200（含端點；數字型別，字串拒絕） |
-| TotalCharges | number \| null | 否 | 0–10,000；省略或 `null` → 以 `tenure × MonthlyCharges` 估算 |
+| TotalCharges | number \| null | 否 | 0–10,000；省略或 `null` → 以 `tenure × MonthlyCharges` 估算。**手填值與估算值一律 half-up 四捨五入到 2 位小數後才進入前處理**；**估算值（四捨五入後）同樣須 ≤ 10,000**（2026-11-20 新增，見下方規則） |
 
 - 大小寫與空白必須與上表完全一致（不做自動修正）。
 - 一致性規則（違反回 422，`field` 指向子欄位）：
   - `PhoneService = No` ⇔ `MultipleLines = No phone service`
   - `InternetService = No` ⇔ 6 個附加服務皆為 `No internet service`
 - 不認識的額外欄位 → 422（`extra="forbid"`，可抓出拼錯的欄名）。
+- TotalCharges 規則（2026-11-20 新增，使用者決定）：
+  - 四捨五入：手填值與估算值皆以 half-up 取到 2 位小數（`Decimal(str(x)).quantize(Decimal("0.01"), ROUND_HALF_UP)`），實作只在 `churn_core.imputation` 一處，訓練與推論共用。回應的 `total_charges.value` 即四捨五入後實際用於預測的值。
+  - 估算值上限：TotalCharges 省略／null 且 `round2(tenure × MonthlyCharges) > 10,000` → 422 `VALIDATION_ERROR`，`details: [{"field": "TotalCharges", "row": null, "type": "out_of_range", "reason": "累計費用估算值為 14,400.00，超過上限 10,000，請手動填寫累計費用"}]`（數字為實際估算值）。例：tenure=72、MonthlyCharges=200 → 估算 14,400.00 → 422。
+  - 批次：同一規則逐列套用，違反列計入 `INVALID_ROWS`（`field=TotalCharges`、Excel 列號）。
+  - 前端：送出前以相同公式與四捨五入計算估算值，> 10,000 時不送出，於 TotalCharges 欄位下方顯示「估算累計費用超過上限，請手動填寫」。
 
 **RiskLevel**：`"low" | "medium" | "high"`；`p < medium` → low；`medium ≤ p < high` → medium；`p ≥ high` → high。
 
@@ -472,7 +499,7 @@ IG 規格（實作依據）：
 | risk_level | RiskLevel | 是 | 依四捨五入後機率判定 |
 | risk_thresholds | RiskThresholds | 是 | 本次使用的切點（ui 3.4 說明文字由此產生） |
 | model | ModelInfo | 是 | 「模型：Keras 神經網路」 |
-| total_charges | object | 是 | `{ "value": number, "is_estimated": boolean }`；`value` 為實際用於預測的值（2 位小數）（AC-1.14、1.15、1.16） |
+| total_charges | object | 是 | `{ "value": number, "is_estimated": boolean }`；`value` 為實際用於預測的值：手填或估算後 half-up 四捨五入到 2 位小數（AC-1.14、1.15、1.16） |
 | top_factors | Factor[] | 是 | 恰 5 筆，依 `abs(impact)` 由大到小（AC-2.1） |
 | top_factors[].feature | string | 是 | 原始欄名，**只作前端 key，不顯示**（AC-2.2） |
 | top_factors[].label | string | 是 | 中文顯示名，格式「欄位中文：值中文」（如「合約類型：月繳」「在網月數：1 個月」「月費：$100.00」「累計費用：$100.00（估算）」） |
@@ -719,7 +746,7 @@ IG 規格（實作依據）：
 | R6 | 批次與單筆因 batch 大小不同，浮點最後幾位可能不同 | 同一顧客單筆／批次機率差 0.001 | 回傳前四捨五入到 3 位，實務上一致；AC 只要求同路徑重複一致（AC-1.11、6.12） |
 | R7 | 前端選項與後端列舉不同步 | 422 或缺選項 | 前端型別由 openapi.json 產生，列舉不一致時 `vue-tsc` 失敗；CI 檢查 openapi.json 是否過期 |
 | R8 | Apple Silicon／ARM 機器 build（2026-11-20 修改：原寫「Linux aarch64 有官方 wheel」，改為不支援） | 預發行版 TF／keras 不一定有 ARM wheel | `tool.uv.environments` 只鎖 Windows AMD64 與 Linux x86_64（3.2.1）；README 註明「已驗證平台：Windows x86_64 本機、Linux x86_64 Docker／CI；macOS／ARM 未支援」 |
-| R11 | **tensorflow 2.22.0rc0、keras 3.16.0.dev2026101704 是預發行版本**（2026-11-20 新增） | ① Linux（Docker、CI）可能無法從 PyPI 取得同版本的 cp314 manylinux wheel ② ~~keras 命名衝突~~：**已確認無衝突**（2026-11-20 主管唯讀確認：本機發行名稱為 `keras-nightly`，tensorflow 2.22.0rc0 的依賴也是 `keras-nightly`；pyproject 寫 `keras-nightly==3.16.0.dev2026101704`，不另裝 `keras`）③ 預發行版可能被 PyPI 撤下（yank）或 API 變動 ④ 與新加入套件（scikit-learn 等）的 numpy 2.5.4／pandas 3.0.6 相容性未知 | **T1 必須先驗證**：在 Windows 本機執行 `uv lock`、`uv sync`，並在 `python:3.14.8-slim-trixie` 容器內執行 `uv sync --frozen` 與 `python -c "import tensorflow, keras; print(tensorflow.__version__, keras.__version__)"`，兩邊都要印出完全相同版本。任何一項失敗（裝不到、需改版本、解析衝突）→ **停下回報主管，不得自行改版本**。鎖定後由 `uv.lock`（含雜湊）固定，避免日後重新解析拿到不同版本；manifest 記錄實際版本（4.5）。理由寫入 ADR-0008 |
+| R11 | **tensorflow 2.22.0rc0、keras-nightly 3.16.0.dev2026101704 是預發行版本**（2026-11-20 新增；**T1 已驗證**：`python:3.14.8-slim-trixie` 容器內 tensorflow／keras-nightly／numpy／pandas 四個版本與 Windows `.venv` 完全相同，新套件與 numpy 2.5.4／pandas 3.0.6 解析無衝突） | ① ~~Linux 可能取不到同版本 wheel~~：已驗證可安裝 ② ~~keras 命名衝突~~：**已確認無衝突**（2026-11-20 主管唯讀確認：本機發行名稱為 `keras-nightly`，tensorflow 2.22.0rc0 的依賴也是 `keras-nightly`；pyproject 寫 `keras-nightly==3.16.0.dev2026101704`，不另裝 `keras`）③ 預發行版可能被 PyPI 撤下（yank）或 API 變動 ④ ~~與新套件的相容性未知~~：已驗證 | 剩餘風險為 ③：由 `uv.lock`（含雜湊）固定，CI 以 `--frozen` 安裝；若日後 PyPI 撤下版本導致安裝失敗，停下回報。T1 驗證方式（已完成）：在 Windows 本機執行 `uv lock`、`uv sync`，並在 `python:3.14.8-slim-trixie` 容器內執行 `uv sync --frozen` 與 `python -c "import tensorflow, keras; print(tensorflow.__version__, keras.__version__)"`，兩邊都要印出完全相同版本。任何一項失敗（裝不到、需改版本、解析衝突）→ **停下回報主管，不得自行改版本**。鎖定後由 `uv.lock`（含雜湊）固定，避免日後重新解析拿到不同版本；manifest 記錄實際版本（4.5）。理由寫入 ADR-0008 |
 | R9 | 單一 backend 容器（單點） | 掛掉即不可用 | 本機展示用途可接受；`restart: unless-stopped` 自動重啟 |
 | R10 | 批次 10,000 列時回應 JSON 約 5–6 MB | 傳輸稍慢 | 啟用 GZip（FastAPI `GZipMiddleware` + nginx gzip），壓縮後 < 1 MB |
 

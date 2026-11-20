@@ -100,10 +100,11 @@ MVP 的資料都是「唯讀」的：訓練資料是 CSV、模型與成效指標
 | AC-1.4 | 輸入低風險特徵（兩年合約、tenure=70、自動扣款、MonthlyCharges=30） | 按「預測」 | 風險等級為「低」 |
 | AC-1.5 | PhoneService 選「No」 | 查看 MultipleLines | 該欄位自動固定為「No phone service」且不可改（與資料集一致） |
 | AC-1.6 | InternetService 選「No」 | 查看 6 個網路附加服務欄位（OnlineSecurity、OnlineBackup、DeviceProtection、TechSupport、StreamingTV、StreamingMovies） | 皆自動固定為「No internet service」且不可改 |
-| AC-1.7（Q3 修改） | 18 個必填欄位未填，或 tenure 不在 0 至 72 的整數、MonthlyCharges 不在 0 至 200、或 TotalCharges 有填但為負數或非數字 | 按「預測」 | 前端不送出，並在對應欄位旁顯示具體錯誤訊息（如「在網月數需為 0 至 72 的整數」）；TotalCharges 留空不算錯誤 |
+| AC-1.7（Q3 修改；2026-11-20 修改） | 18 個必填欄位未填，或 tenure 不在 0 至 72 的整數、MonthlyCharges 不在 0 至 200、或 TotalCharges 有填但為負數或非數字，或 TotalCharges 留空但估算值（tenure x MonthlyCharges，四捨五入到 2 位小數）> 10,000 | 按「預測」 | 前端不送出，並在對應欄位旁顯示具體錯誤訊息（如「在網月數需為 0 至 72 的整數」）；估算值超過上限時，TotalCharges 欄位下顯示「估算累計費用超過上限，請手動填寫」。TotalCharges 留空一般不算錯誤，唯一例外是估算值 > 10,000 |
 | AC-1.14（Q3 新增） | TotalCharges 留空，tenure=10、MonthlyCharges=50 | 按「預測」 | 可成功預測；結果區註明「累計費用以 500 估算」（10 x 50）；與手動填入 TotalCharges=500 的預測機率完全相同 |
 | AC-1.15（Q3 新增） | TotalCharges 有填（如 1200） | 按「預測」 | 使用填入的值預測，不顯示「估算」註記 |
-| AC-1.16（Q3 新增） | 直接呼叫預測 API，不帶 TotalCharges 欄位（或值為 null） | 送出請求 | 回 200 並成功預測，回應中標明累計費用為估算值；若帶入非法值（負數、字串）則回 422 |
+| AC-1.16（Q3 新增；2026-11-20 修改） | 直接呼叫預測 API，不帶 TotalCharges 欄位（或值為 null） | 送出請求 | 回 200 並成功預測，回應中標明累計費用為估算值；例外：估算值（四捨五入到 2 位小數後）> 10,000 時回 422，錯誤指出欄位為 TotalCharges；帶入非法值（負數、字串）同樣回 422 |
+| AC-1.17（2026-11-20 新增） | 手填 TotalCharges=1200.005（或留空且 tenure x MonthlyCharges 產生第 3 位小數的 5，如 tenure=1、MonthlyCharges=20.005） | 呼叫預測 API | 以 half-up 四捨五入到 2 位小數後預測；回應的 total_charges.value 為實際用於預測的值（1200.005 回 1200.01；20.005 回 20.01） |
 | AC-1.8 | 直接呼叫預測 API 並傳入非法值（未知類別、缺欄位、字串當數字） | 送出請求 | 回傳 HTTP 422，內容指出哪個欄位錯在哪裡；服務不當機，且不回傳預測值 |
 | AC-1.9 | 後端服務停止或模型檔缺失 | 按「預測」 | 畫面顯示「服務暫時無法使用」類的友善訊息與重試按鈕，不顯示空白頁或原始錯誤堆疊；API 在模型缺失時回 503 |
 | AC-1.10 | 預測進行中 | 等待回應 | 「預測」按鈕變為不可按（防重複送出）並顯示載入狀態；回應後恢復 |
@@ -193,7 +194,7 @@ MVP 的資料都是「唯讀」的：訓練資料是 CSV、模型與成效指標
 | AC-6.10 | 處理中 | 等待 | 顯示載入狀態，上傳按鈕不可重複按 |
 | AC-6.11 | 上傳完成後 | 檢查伺服器 | 上傳的內容不被持久儲存（不寫入資料庫或長期保留的檔案） |
 | AC-6.12 | 同一份檔案上傳 2 次 | 比較結果 | 兩次結果完全一致 |
-| AC-6.13（Q3 新增） | 上傳的 CSV 沒有 TotalCharges 欄位，或部分列該欄為空 | 送出 | 預測成功；缺值的列以 tenure x MonthlyCharges 估算，結果表格標示哪些列為估算；不視為錯誤 |
+| AC-6.13（Q3 新增） | 上傳的 CSV 沒有 TotalCharges 欄位，或部分列該欄為空 | 送出 | 預測成功；缺值的列以 tenure x MonthlyCharges 估算，結果表格標示哪些列為估算；不視為錯誤。（2026-11-20 修改）例外：估算值超過 10,000 的列視為不合法列，依 AC-6.7 處理（整份拒絕並列出列號與原因） |
 
 ---
 
