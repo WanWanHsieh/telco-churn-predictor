@@ -1,0 +1,122 @@
+{
+  "model_version": "20261120-fc673697",
+  "trained_at": "2026-11-20T13:54:19Z",
+  "seed": 42,
+  "data": {
+    "file_name": "WA_Fn-UseC_-Telco-Customer-Churn.csv",
+    "rows": 7043,
+    "sha256": "88be4b93fbe0cc83421af1c503794c97c342eca914c1576db7c276e61d61358a",
+    "cleaning_report": {
+      "rows": 7043,
+      "total_charges_blank": 11,
+      "total_charges_blank_with_zero_tenure": 11
+    }
+  },
+  "split": {
+    "train": 4507,
+    "validation": 1127,
+    "test": 1409
+  },
+  "n_features": 45,
+  "feature_names": [
+    "gender=Female",
+    "gender=Male",
+    "Partner=Yes",
+    "Partner=No",
+    "Dependents=Yes",
+    "Dependents=No",
+    "PhoneService=Yes",
+    "PhoneService=No",
+    "MultipleLines=Yes",
+    "MultipleLines=No",
+    "MultipleLines=No phone service",
+    "InternetService=DSL",
+    "InternetService=Fiber optic",
+    "InternetService=No",
+    "OnlineSecurity=Yes",
+    "OnlineSecurity=No",
+    "OnlineSecurity=No internet service",
+    "OnlineBackup=Yes",
+    "OnlineBackup=No",
+    "OnlineBackup=No internet service",
+    "DeviceProtection=Yes",
+    "DeviceProtection=No",
+    "DeviceProtection=No internet service",
+    "TechSupport=Yes",
+    "TechSupport=No",
+    "TechSupport=No internet service",
+    "StreamingTV=Yes",
+    "StreamingTV=No",
+    "StreamingTV=No internet service",
+    "StreamingMovies=Yes",
+    "StreamingMovies=No",
+    "StreamingMovies=No internet service",
+    "Contract=Month-to-month",
+    "Contract=One year",
+    "Contract=Two year",
+    "PaperlessBilling=Yes",
+    "PaperlessBilling=No",
+    "PaymentMethod=Electronic check",
+    "PaymentMethod=Mailed check",
+    "PaymentMethod=Bank transfer (automatic)",
+    "PaymentMethod=Credit card (automatic)",
+    "SeniorCitizen",
+    "tenure",
+    "MonthlyCharges",
+    "TotalCharges"
+  ],
+  "packages": {
+    "python": "3.14.8",
+    "tensorflow": "2.22.0rc0",
+    "keras-nightly": "3.16.0.dev2026101704",
+    "numpy": "2.5.4",
+    "pandas": "3.0.6",
+    "scikit-learn": "1.9.1"
+  },
+  "unrounded_metrics": {
+    "logistic_regression": {
+      "roc_auc": 0.842483660130719,
+      "precision": 0.5209471766848816,
+      "recall": 0.7647058823529411,
+      "f1": 0.619718309859155,
+      "accuracy": 0.7508871540099361
+    },
+    "keras_mlp": {
+      "roc_auc": 0.837399571159162,
+      "precision": 0.5164835164835165,
+      "recall": 0.7540106951871658,
+      "f1": 0.6130434782608696,
+      "accuracy": 0.7473385379701917
+    }
+  },
+  "total_charges_estimate_error": {
+    "computed_on": "training_subset",
+    "n_rows": 4500,
+    "median": 0.019816,
+    "p90": 0.075585
+  },
+  "imbalance_strategy": "threshold_tuning",
+  "training": {
+    "config": {
+      "data_path": "WA_Fn-UseC_-Telco-Customer-Churn.csv",
+      "output_dir": "models",
+      "seed": 42,
+      "epochs": 100,
+      "imbalance_strategy": "threshold_tuning",
+      "target_recall": 0.75,
+      "test_size": 0.2,
+      "validation_size": 0.2,
+      "batch_size": 64,
+      "patience": 10
+    },
+    "started_at": "2026-11-20T13:54:12Z",
+    "finished_at": "2026-11-20T13:54:19Z",
+    "keras_epochs_run": 16
+  },
+  "files": {
+    "churn_mlp.keras": "fc67369780ca3987d22c667aacaede2661ef792b832f8469bec2962540758288",
+    "preprocessor.json": "81d356cf690a7522ccefc9787f1d46e8fc185ebb212b539a17fe305215d13aab",
+    "explainer.json": "606f00ded3974156fd17a151f7e0ee93592ca98fa6b50056c3c3d3edbfc145ee",
+    "metrics.json": "38033919a60a02be954894320787ccdcbe92d6d9fff448d11c741b5637d12909"
+  }
+}
