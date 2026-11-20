@@ -1,0 +1,24 @@
+# 一鍵啟動：docker compose up --build → http://localhost:8080
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      # 只綁本機：外部請求一律經過前端 nginx（含上傳大小限制）
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    # 不用 service_healthy：模型缺失時 backend 會 unhealthy，前端仍要能開啟並顯示友善錯誤（AC-1.9）
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped

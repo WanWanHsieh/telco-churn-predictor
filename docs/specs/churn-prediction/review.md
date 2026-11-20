@@ -83,3 +83,10 @@
 - 已採納的建議：`stores/prediction.submit` 進行中不重複送出；`api/client` 讀取本體也受逾時保護。
 - 保留不處理：csv 一次讀入記憶體（5 MB 上限內可接受）、impact 四捨五入為 0.0 時的方向（前端顯示「0.0」）、`+10`／`010` 字面值、422 對不到欄位時顯示服務錯誤框、後端 422 後未移動焦點、`role="alert"` 與 `aria-live` 可能重複朗讀。
 - 主管實測：uvicorn＋vite 以正式模型在瀏覽器預測高風險範例 → 73.9% 高風險、5 個因素、估算註記正確、無橫向捲動。
+
+## R4：T12 Docker＋T17 README（2026-11-20）
+
+- 審核等級：輕量。結果：可以合併，無必須修。
+- 已採納建議：README 成效數字改用 metrics.json 4 位值經 `toFixed(3)`（LR AUC 0.843、Keras Precision 0.516，與成效頁一致）；`uv venv` 路徑註明依平台替換；nginx `/assets/` 補齊安全標頭；backend 埠只綁 127.0.0.1；README 註明 Swagger UI 需連網。
+- 主管驗證：compose up 約 9 秒 healthy；預測、/docs、SPA fallback 正常；兩容器非 root；容器內版本與 design 3.2.1 相同；MODEL_DIR 指向不存在目錄時 health 503、meta 200（以此取代「移走模型檔重建」，因 `COPY models/` 需要目錄存在）。
+- 映像大小：backend 3.48 GB（tensorflow 預發行版 2.1 GB，超出 design 預估 1.3–1.6 GB）、frontend 92 MB。
