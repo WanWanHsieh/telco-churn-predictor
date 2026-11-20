@@ -40,7 +40,12 @@ def sha256_file(path: Path) -> str:
 
 def write_json(path: Path, data: Mapping[str, Any]) -> None:
     """UTF-8、縮排 2、結尾換行；浮點以 repr 輸出，往返不失真。"""
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_text_lf(path, json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+
+def write_text_lf(path: Path, text: str) -> None:
+    """固定以 LF 寫出：Windows 預設會轉成 CRLF，雜湊就會因平台而不同。"""
+    path.write_text(text, encoding="utf-8", newline="\n")
 
 
 def export_artifacts(
@@ -62,7 +67,7 @@ def export_artifacts(
     model.save(str(model_path))
     model_version = f"{trained_at:%Y%m%d}-{sha256_file(model_path)[:8]}"
 
-    (output_dir / PREPROCESSOR_FILE).write_text(preprocessor.to_json() + "\n", encoding="utf-8")
+    write_text_lf(output_dir / PREPROCESSOR_FILE, preprocessor.to_json() + "\n")
     write_json(output_dir / EXPLAINER_FILE, explainer)
     write_json(output_dir / METRICS_FILE, build_metrics(model_version))
 

@@ -200,3 +200,13 @@ def test_estimate_error_stats_ignores_blank_and_zero_rows() -> None:
     assert stats["n_rows"] == 2  # 空白列與 0 值列不計
     assert stats["median"] == pytest.approx((0.0 + 50 / 550) / 2, abs=1e-6)
     assert pipeline.estimate_error_stats(frame.iloc[2:])["n_rows"] == 0
+
+
+def test_json_artifacts_use_lf_so_hashes_are_platform_independent(
+    trained_run: TrainingResult,
+) -> None:
+    """JSON 產物固定 LF：否則 Windows 產生的雜湊在 Linux（CI、Docker）會對不上。"""
+    out = trained_run.config.output_dir
+    for name in ARTIFACT_FILES:
+        if name.endswith(".json"):
+            assert b"\r" not in (out / name).read_bytes(), name

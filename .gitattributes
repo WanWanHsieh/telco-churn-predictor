@@ -1,0 +1,2 @@
+# 模型產物以位元組原樣保存：雜湊記錄在 manifest，不可讓 git 轉換換行
+models/** -text
