@@ -90,3 +90,11 @@
 - 已採納建議：README 成效數字改用 metrics.json 4 位值經 `toFixed(3)`（LR AUC 0.843、Keras Precision 0.516，與成效頁一致）；`uv venv` 路徑註明依平台替換；nginx `/assets/` 補齊安全標頭；backend 埠只綁 127.0.0.1；README 註明 Swagger UI 需連網。
 - 主管驗證：compose up 約 9 秒 healthy；預測、/docs、SPA fallback 正常；兩容器非 root；容器內版本與 design 3.2.1 相同；MODEL_DIR 指向不存在目錄時 health 503、meta 200（以此取代「移走模型檔重建」，因 `COPY models/` 需要目錄存在）。
 - 映像大小：backend 3.48 GB（tensorflow 預發行版 2.1 GB，超出 design 預估 1.3–1.6 GB）、frontend 92 MB。
+
+## R5：T10 成效頁、T11 批次頁、T13 CI、T16 ADR、README（2026-11-20）
+
+- 審核等級：輕量。結果：修正後可以合併。
+- 必須修（已修）：結果 CSV 欄名與格式不符 design 6.5.5 → 表頭改為「流失機率／風險等級／累計費用為估算」，機率改為百分比 1 位（如 `73.9%`），測試同步更新。
+- 已採納建議：CSV 公式注入防護（字串以 `= + - @` 開頭時加前綴 `'`，數字不受影響）；成效頁「固定 0.5」改為具名常數並註明為概念說明。
+- 主管實測：Docker 重建後以 Edge 檢查成效頁與批次頁（上傳範本 2 筆 → 高 1、低 1），1280／375 無橫向捲動、console 無錯誤；修正成效頁「（基準）（基準）」重複字樣。
+- 未驗證：ci.yml 尚未在 GitHub 實跑（需使用者同意 push）；`setup-python` 能否取得 3.14.8 待實跑確認。

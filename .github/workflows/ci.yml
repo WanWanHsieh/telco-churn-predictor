@@ -1,0 +1,104 @@
+# CI：Python（lint／型別／測試／合約檢查）、前端（lint／型別／測試／建置）、Docker 建置
+# 版本與本機鎖定相同：Python 3.14.8、uv 0.10.2、Node 22（design.md 3.2.1、10.3）
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON_DOWNLOADS: never
+      UV_PYTHON_PREFERENCE: only-system
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14.8'
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.10.2'
+          enable-cache: true
+
+      - name: Install dependencies (frozen lockfile)
+        run: uv sync --frozen --all-packages
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format
+        run: uv run ruff format --check .
+
+      - name: Mypy
+        run: uv run mypy core/src ml/src backend/src
+
+      - name: Tests (core coverage)
+        run: uv run pytest core -q --cov=churn_core --cov-fail-under=80
+
+      - name: Tests (ml, incl. version smoke test)
+        run: uv run pytest ml -q
+
+      - name: Tests (backend coverage)
+        run: >-
+          uv run pytest backend -q
+          --cov=churn_api.services --cov=churn_api.inference --cov-fail-under=70
+
+      - name: OpenAPI contract is up to date
+        run: uv run python backend/scripts/export_openapi.py --check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run type-check
+      - run: npm run test -- --run
+      - run: npm run build
+
+  docker:
+    needs: [python, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: false
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend

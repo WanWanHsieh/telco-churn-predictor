@@ -17,6 +17,8 @@ export class ApiError extends Error {
   readonly status: number | null
   readonly details: ErrorDetail[]
   readonly requestId: string | null
+  /** 補充資訊（例如上限值、錯誤總數） */
+  readonly meta: Record<string, unknown>
 
   constructor(options: {
     code: string
@@ -24,6 +26,7 @@ export class ApiError extends Error {
     status?: number | null
     details?: ErrorDetail[]
     requestId?: string | null
+    meta?: Record<string, unknown> | null
   }) {
     super(options.message)
     this.name = 'ApiError'
@@ -31,6 +34,13 @@ export class ApiError extends Error {
     this.status = options.status ?? null
     this.details = options.details ?? []
     this.requestId = options.requestId ?? null
+    this.meta = options.meta ?? {}
+  }
+
+  /** 讀取 meta 中的數值欄位，不存在或不是數字時回 null */
+  metaNumber(key: string): number | null {
+    const value = this.meta[key]
+    return typeof value === 'number' && Number.isFinite(value) ? value : null
   }
 
   get isNetworkError(): boolean {
@@ -43,6 +53,7 @@ interface ErrorEnvelope {
     code: string
     message: string
     details?: ErrorDetail[]
+    meta?: Record<string, unknown> | null
     request_id?: string
   }
 }
@@ -108,6 +119,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       status: response.status,
       details: body.error.details ?? [],
       requestId: body.error.request_id ?? response.headers.get('X-Request-ID'),
+      meta: body.error.meta ?? null,
     })
   }
   throw networkError('伺服器回應格式錯誤', response.status)

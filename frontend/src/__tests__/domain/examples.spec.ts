@@ -60,9 +60,10 @@ describe('範例資料（design.md 6.7）', () => {
     const { readFileSync } = (await import(/* @vite-ignore */ fsModule)) as {
       readFileSync: (path: string, encoding: string) => string
     }
-    // vitest 在 frontend/ 執行，fixture 在 repo 根目錄的 core/ 下
-    const cwd = (globalThis as unknown as { process: { cwd: () => string } }).process.cwd()
-    const path = `${cwd}/../core/tests/fixtures/high_risk_example.json`
+    // 以測試檔所在目錄解析，不依賴執行目錄（CI 或從 repo 根目錄執行都可）。
+    // jsdom 會換掉全域 URL，因此用 import.meta.dirname 字串組路徑
+    const dir = (import.meta as unknown as { dirname: string }).dirname
+    const path = `${dir}/../../../../core/tests/fixtures/high_risk_example.json`
     const fixture = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>
     expect('TotalCharges' in fixture).toBe(false)
     expect({ ...HIGH_RISK_EXAMPLE, TotalCharges: undefined }).toEqual({
