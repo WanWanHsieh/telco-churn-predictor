@@ -4,7 +4,7 @@ from fastapi import APIRouter
 
 from churn_api.dependencies import ModelStateDep
 from churn_api.errors import AppError, ErrorCode, error_responses
-from churn_api.schemas.common import HealthResponse
+from churn_api.schemas.common import HealthResponse, ModelInfo
 
 router = APIRouter(tags=["系統"])
 
@@ -20,4 +20,14 @@ router = APIRouter(tags=["系統"])
 def get_health(state: ModelStateDep) -> HealthResponse:
     if state.bundle is None:
         raise AppError(ErrorCode.MODEL_UNAVAILABLE)
-    return HealthResponse(status="ok", model_loaded=True, model=state.bundle.model_info)
+    info = state.bundle.model_info
+    return HealthResponse(
+        status="ok",
+        model_loaded=True,
+        model=ModelInfo(
+            name=info.name,
+            display_name=info.display_name,
+            version=info.version,
+            trained_at=info.trained_at,
+        ),
+    )

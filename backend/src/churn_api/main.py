@@ -13,7 +13,7 @@ from churn_api.api.v1.router import api_router
 from churn_api.errors import install_exception_handlers
 from churn_api.inference.artifacts import ArtifactLoader, load_artifacts, load_model_state
 from churn_api.logging_config import configure_logging, log_event
-from churn_api.middleware import RequestContextMiddleware
+from churn_api.middleware import RequestContextMiddleware, UnhandledExceptionMiddleware
 from churn_api.settings import Settings
 
 logger = logging.getLogger("churn_api.main")
@@ -53,8 +53,10 @@ def create_app(
     install_exception_handlers(app)
     app.include_router(api_router)
 
-    # add_middleware 後加入者在外層：RequestContext（最外）→ CORS → GZip → 路由
+    # add_middleware 後加入者在外層：
+    # RequestContext（最外）→ CORS → UnhandledException → GZip → 路由
     app.add_middleware(GZipMiddleware, minimum_size=1024)
+    app.add_middleware(UnhandledExceptionMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allow_origins,  # 白名單，不使用 *（NFR-8）

@@ -2,7 +2,7 @@
 
 以純 ASGI 實作（不用 BaseHTTPMiddleware），並放在最外層，讓所有回應（含 CORS 預檢、
 例外處理器產生的錯誤回應）都帶有 `X-Request-ID`。
-未預期例外在這裡攔下並轉成 500 `INTERNAL_ERROR`（堆疊只進 log）。
+未預期例外由 `UnhandledExceptionMiddleware` 攔下並轉成 500（堆疊只進 log）。
 """
 
 import logging
@@ -12,6 +12,7 @@ import uuid
 from typing import Final
 
 from starlette.datastructures import MutableHeaders
+from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from churn_api.errors import unhandled_exception_response
@@ -29,6 +30,37 @@ def resolve_request_id(raw: str | None) -> str:
     if raw is not None and _VALID_REQUEST_ID.fullmatch(raw):
         return raw
     return str(uuid.uuid4())
+
+
+class UnhandledExceptionMiddleware:
+    """攔下未預期例外並轉成 500 `INTERNAL_ERROR`。
+
+    放在 CORS 的內側（RequestContext → CORS → 本層 → GZip → 路由），
+    因此 500 回應會經過 CORS（遵守同一白名單）與 RequestContext（帶 X-Request-ID）。
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        response_started = False
+
+        async def tracking_send(message: Message) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, tracking_send)
+        except Exception as exc:
+            if response_started:
+                raise  # 回應已開始送出，無法改寫；交給伺服器中斷連線
+            response = unhandled_exception_response(Request(scope, receive), exc)
+            await response(scope, receive, send)
 
 
 class RequestContextMiddleware:
@@ -54,24 +86,16 @@ class RequestContextMiddleware:
         token = request_id_var.set(request_id)
         started = time.perf_counter()
         status_code = 500
-        response_started = False
 
         async def send_with_id(message: Message) -> None:
-            nonlocal status_code, response_started
+            nonlocal status_code
             if message["type"] == "http.response.start":
-                response_started = True
                 status_code = int(message["status"])
                 MutableHeaders(scope=message)[REQUEST_ID_HEADER] = request_id
             await send(message)
 
         try:
-            try:
-                await self.app(scope, receive, send_with_id)
-            except Exception as exc:
-                if response_started:
-                    raise  # 回應已開始送出，無法改寫；交給伺服器中斷連線
-                response = unhandled_exception_response(None, exc)
-                await response(scope, receive, send_with_id)
+            await self.app(scope, receive, send_with_id)
         finally:
             client = scope.get("client")
             log_event(

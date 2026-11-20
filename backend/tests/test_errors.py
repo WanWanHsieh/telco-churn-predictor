@@ -1,6 +1,7 @@
 """錯誤處理：6.3 格式、錯誤碼總表、Pydantic 繁中翻譯、500 不洩漏（NFR-7）。"""
 
 import io
+import json
 import re
 from collections.abc import Callable
 from typing import Any, Literal
@@ -360,3 +361,36 @@ def test_error_responses_helper_documents_models_and_examples() -> None:
     assert set(docs) == {503, 400, 422}
     example = docs[503]["content"]["application/json"]["examples"]["MODEL_UNAVAILABLE"]["value"]
     assert set(example["error"]) == ERROR_KEYS
+
+
+def test_cross_origin_unhandled_exception_has_cors_and_path_logged(
+    make_client: Callable[..., TestClient], make_settings: Callable[..., Settings]
+) -> None:
+    app = create_app(make_settings(cors_allow_origins="http://localhost:8080"))
+
+    @app.get("/boom2")
+    def boom2() -> None:
+        raise RuntimeError("secret")
+
+    stream = io.StringIO()
+    configure_logging("INFO", "production", stream=stream)
+    try:
+        client = make_client(app)
+        ok = client.get("/boom2", headers={"Origin": "http://localhost:8080"})
+        bad = client.get("/boom2", headers={"Origin": "http://evil.example.com"})
+    finally:
+        configure_logging("INFO", "production")
+
+    assert ok.status_code == 500
+    assert ok.headers["access-control-allow-origin"] == "http://localhost:8080"
+    assert _error(ok)["code"] == "INTERNAL_ERROR"
+    assert bad.status_code == 500
+    assert "access-control-allow-origin" not in bad.headers  # 同一白名單
+    assert "secret" not in ok.text
+
+    events = [json.loads(line) for line in stream.getvalue().splitlines()]
+    crashes = [e for e in events if e["event"] == "unhandled_exception"]
+    assert [e["path"] for e in crashes] == ["/boom2", "/boom2"]
+    assert all(e["method"] == "GET" for e in crashes)
+    access = [e for e in events if e["event"] == "http_request" and e["path"] == "/boom2"]
+    assert [e["status"] for e in access] == [500, 500]

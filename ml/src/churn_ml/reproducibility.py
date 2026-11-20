@@ -5,10 +5,6 @@ from __future__ import annotations
 import os
 import random
 
-# 必須在 import keras 之前決定後端與 log 等級
-os.environ.setdefault("KERAS_BACKEND", "tensorflow")
-os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-
 import keras
 import numpy as np
 import tensorflow as tf

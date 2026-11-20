@@ -12,7 +12,7 @@ from typing import Any
 
 from churn_core.preprocessing import Preprocessor
 from churn_core.schema import ID_COLUMN
-from churn_ml.evaluate import check_metrics_structure
+from churn_ml.evaluate import METRIC_NAMES, check_metrics_structure
 
 MODEL_FILE = "churn_mlp.keras"
 PREPROCESSOR_FILE = "preprocessor.json"
@@ -92,9 +92,32 @@ def _load_json(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def _keras_and_lr(metrics: Mapping[str, Any]) -> tuple[Mapping[str, Any], Mapping[str, Any]]:
-    by_key = {m["key"]: m for m in metrics["models"]}
-    return by_key["keras_mlp"]["metrics"], by_key["logistic_regression"]["metrics"]
+def _raw_metrics(
+    manifest: Mapping[str, Any], metrics: Mapping[str, Any]
+) -> tuple[dict[str, float] | None, dict[str, float] | None, str | None]:
+    """取出 manifest 的未四捨五入指標（Keras、LR），並確認四捨五入後與 metrics.json 相同。
+
+    回傳（keras, lr, 問題說明）；有問題時前兩者為 None。
+    """
+    raw = manifest.get("unrounded_metrics")
+    if not isinstance(raw, dict):
+        return None, None, "manifest 缺少 unrounded_metrics"
+    shown = {m["key"]: m["metrics"] for m in metrics["models"]}
+    result: dict[str, dict[str, float]] = {}
+    for key in ("keras_mlp", "logistic_regression"):
+        values = raw.get(key)
+        if not isinstance(values, dict):
+            return None, None, f"unrounded_metrics 缺少 {key}"
+        parsed: dict[str, float] = {}
+        for name in METRIC_NAMES:
+            value = values.get(name)
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                return None, None, f"unrounded_metrics.{key}.{name} 不是數字"
+            if round(float(value), 4) != shown[key][name]:
+                return None, None, f"unrounded_metrics.{key}.{name} 與 metrics.json 不一致"
+            parsed[name] = float(value)
+        result[key] = parsed
+    return result["keras_mlp"], result["logistic_regression"], None
 
 
 def verify_artifacts(artifacts: Path, compare: Path | None = None) -> list[Check]:
@@ -114,7 +137,9 @@ def verify_artifacts(artifacts: Path, compare: Path | None = None) -> list[Check
         checks.append(Check("JSON 可讀", False, "manifest／metrics／preprocessor 不是合法 JSON"))
         return checks
 
-    listed = manifest.get("files", {})
+    listed = manifest.get("files")
+    if not isinstance(listed, dict):
+        listed = {}  # 型別不對視為全部缺漏，回報未達標而不是崩潰
     bad = [
         name
         for name in HASHED_FILES
@@ -133,38 +158,52 @@ def verify_artifacts(artifacts: Path, compare: Path | None = None) -> list[Check
     if problems:
         return checks
 
-    keras_m, lr_m = _keras_and_lr(metrics)
-    auc, recall = float(keras_m["roc_auc"]), float(keras_m["recall"])
+    # NFR 以未四捨五入的值判斷（metrics.json 只存 4 位小數，0.81996 會被進位成 0.82）
+    raw_keras, raw_lr, raw_problem = _raw_metrics(manifest, metrics)
+    checks.append(
+        Check("未四捨五入指標", raw_problem is None, raw_problem or "與 metrics.json 一致")
+    )
+    if raw_keras is None or raw_lr is None:
+        return checks
+    auc, recall = raw_keras["roc_auc"], raw_keras["recall"]
     checks.append(
         Check(
             "NFR-1 Keras ROC-AUC 與 Recall",
             auc >= NFR1_MIN_AUC and recall >= NFR1_MIN_RECALL,
-            f"AUC {auc:.4f}（>= {NFR1_MIN_AUC}）、Recall {recall:.4f}（>= {NFR1_MIN_RECALL}）",
+            f"AUC {auc:.6f}（>= {NFR1_MIN_AUC}）、Recall {recall:.6f}（>= {NFR1_MIN_RECALL}）",
         )
     )
-    lr_auc = float(lr_m["roc_auc"])
+    lr_auc = raw_lr["roc_auc"]
     checks.append(
         Check(
             "NFR-2 Keras AUC 不低於 LR 超過 0.01",
             auc >= lr_auc - NFR2_MAX_AUC_GAP,
-            f"Keras {auc:.4f}、LR {lr_auc:.4f}",
+            f"Keras {auc:.6f}、LR {lr_auc:.6f}",
         )
     )
 
     if compare is not None:
-        other = _load_json(compare / METRICS_FILE)
-        if other is None or check_metrics_structure(other):
+        other_manifest = _load_json(compare / MANIFEST_FILE)
+        other_metrics = _load_json(compare / METRICS_FILE)
+        other_keras = None
+        if (
+            other_manifest is not None
+            and other_metrics is not None
+            and not check_metrics_structure(other_metrics)
+        ):
+            other_keras, _, _ = _raw_metrics(other_manifest, other_metrics)
+        if other_keras is None:
             checks.append(
-                Check("--compare 可讀", False, f"{compare} 的 metrics.json 不存在或結構錯誤")
+                Check("--compare 可讀", False, f"{compare} 的 manifest／metrics 不存在或結構錯誤")
             )
         else:
-            other_auc = float(_keras_and_lr(other)[0]["roc_auc"])
+            other_auc = other_keras["roc_auc"]
             diff = abs(auc - other_auc)
             checks.append(
                 Check(
                     "AC-4.6 兩次訓練 Keras AUC 差",
                     diff <= COMPARE_MAX_AUC_DIFF,
-                    f"{auc:.4f} vs {other_auc:.4f}，差 {diff:.4f}（<= {COMPARE_MAX_AUC_DIFF}）",
+                    f"{auc:.6f} vs {other_auc:.6f}，差 {diff:.6f}（<= {COMPARE_MAX_AUC_DIFF}）",
                 )
             )
     return checks

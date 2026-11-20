@@ -93,3 +93,11 @@ def test_train_config_validation() -> None:
             TrainConfig(**bad)  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         TrainConfig(imbalance_strategy="bogus")  # type: ignore[arg-type]
+
+
+def test_config_to_dict_keeps_only_names(tmp_path: Path) -> None:
+    config = TrainConfig(data_path=tmp_path / "raw" / "x.csv", output_dir=tmp_path / "out")
+    data = config.to_dict()
+    assert data["data_path"] == "x.csv"
+    assert data["output_dir"] == "out"
+    assert str(tmp_path) not in str(data)

@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -188,16 +189,113 @@ def test_verify_compare_checks_auc_difference(
     assert "差 0.0000" in capsys.readouterr().out
 
     other = _copy(same, tmp_path / "other")
-    metrics = json.loads((other / "metrics.json").read_text(encoding="utf-8"))
-    metrics["models"][1]["metrics"]["roc_auc"] = round(
-        min(1.0, metrics["models"][1]["metrics"]["roc_auc"] + 0.3)
-        if metrics["models"][1]["metrics"]["roc_auc"] < 0.7
-        else metrics["models"][1]["metrics"]["roc_auc"] - 0.3,
-        4,
-    )
-    (other / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
+    _set_keras_auc(other, 0.3 if _keras_auc(same) > 0.65 else 0.95)  # 差距必大於 0.01
     assert verify_main(["--artifacts", str(same), "--compare", str(other)]) == 1
     assert "[未達標] AC-4.6" in capsys.readouterr().out
 
     assert verify_main(["--artifacts", str(same), "--compare", str(tmp_path / "none")]) == 1
     assert "--compare 可讀" in capsys.readouterr().out
+
+
+# ---- 以下為 R2 修正項目
+def _keras_auc(directory: Path) -> float:
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+    return float(manifest["unrounded_metrics"]["keras_mlp"]["roc_auc"])
+
+
+def _set_keras_auc(directory: Path, raw: float, *, rehash: bool = False) -> None:
+    """同時改 manifest 的未四捨五入值與 metrics.json 的 4 位小數值（可選：重算 manifest 雜湊）。"""
+    manifest_path, metrics_path = directory / "manifest.json", directory / "metrics.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+    manifest["unrounded_metrics"]["keras_mlp"]["roc_auc"] = raw
+    metrics["models"][1]["metrics"]["roc_auc"] = round(raw, 4)
+    metrics_path.write_text(json.dumps(metrics), encoding="utf-8")
+    if rehash:
+        manifest["files"] = {n: export.sha256_file(directory / n) for n in export.HASHED_FILES}
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def _check(checks: list[export.Check], prefix: str) -> export.Check:
+    return next(c for c in checks if c.name.startswith(prefix))
+
+
+def test_nfr1_uses_unrounded_auc(trained_run: TrainingResult, tmp_path: Path) -> None:
+    # metrics.json 的 4 位小數是 0.82（達標的樣子），但真實值 0.81996 < 0.82 → 必須未達標
+    near = _copy(trained_run.config.output_dir, tmp_path / "near")
+    manifest = json.loads((near / "manifest.json").read_text(encoding="utf-8"))
+    manifest["unrounded_metrics"]["keras_mlp"]["recall"] = 0.9
+    metrics = json.loads((near / "metrics.json").read_text(encoding="utf-8"))
+    metrics["models"][1]["metrics"]["recall"] = 0.9
+    (near / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    (near / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
+
+    _set_keras_auc(near, 0.81996, rehash=True)
+    assert (
+        json.loads((near / "metrics.json").read_text(encoding="utf-8"))["models"][1]["metrics"][
+            "roc_auc"
+        ]
+        == 0.82
+    )
+    checks = export.verify_artifacts(near)
+    assert _check(checks, "manifest 雜湊").ok
+    assert not _check(checks, "NFR-1").ok
+
+    _set_keras_auc(near, 0.82, rehash=True)  # 剛好 0.82 → 達標
+    assert _check(export.verify_artifacts(near), "NFR-1").ok
+
+
+def test_nfr2_and_compare_use_unrounded_values(trained_run: TrainingResult, tmp_path: Path) -> None:
+    base = _copy(trained_run.config.output_dir, tmp_path / "base")
+    manifest = json.loads((base / "manifest.json").read_text(encoding="utf-8"))
+    lr_auc = manifest["unrounded_metrics"]["logistic_regression"]["roc_auc"]
+    _set_keras_auc(
+        base, lr_auc - 0.010004, rehash=True
+    )  # 差 0.010004 > 0.01，但 4 位小數差恰為 0.01
+    assert not _check(export.verify_artifacts(base), "NFR-2").ok
+
+    first = _copy(trained_run.config.output_dir, tmp_path / "first")
+    second = _copy(trained_run.config.output_dir, tmp_path / "second")
+    _set_keras_auc(first, 0.8, rehash=True)
+    _set_keras_auc(second, 0.810004, rehash=True)
+    checks = export.verify_artifacts(first, compare=second)
+    assert not _check(checks, "AC-4.6").ok  # 真實差 0.010004
+
+
+def test_verify_requires_consistent_unrounded_metrics(
+    trained_run: TrainingResult, tmp_path: Path
+) -> None:
+    for index, mutate in enumerate(
+        [
+            lambda m: m.pop("unrounded_metrics"),
+            lambda m: m["unrounded_metrics"].pop("keras_mlp"),
+            lambda m: m["unrounded_metrics"]["keras_mlp"].update(recall="x"),
+            lambda m: m["unrounded_metrics"]["keras_mlp"].update(roc_auc=0.123456),
+        ]
+    ):
+        broken = _copy(trained_run.config.output_dir, tmp_path / f"b{index}")
+        manifest = json.loads((broken / "manifest.json").read_text(encoding="utf-8"))
+        mutate(manifest)
+        (broken / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        assert not _check(export.verify_artifacts(broken), "未四捨五入指標").ok
+
+
+def test_verify_handles_non_dict_manifest_files(
+    trained_run: TrainingResult, tmp_path: Path
+) -> None:
+    for value in (None, ["a"], "x", 3):
+        broken = _copy(trained_run.config.output_dir, tmp_path / f"f{type(value).__name__}")
+        manifest = json.loads((broken / "manifest.json").read_text(encoding="utf-8"))
+        manifest["files"] = value
+        (broken / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        checks = export.verify_artifacts(broken)  # 不可崩潰
+        assert not _check(checks, "manifest 雜湊").ok
+
+
+def test_manifest_has_no_absolute_paths(trained_run: TrainingResult) -> None:
+    text = (trained_run.config.output_dir / "manifest.json").read_text(encoding="utf-8")
+    assert str(trained_run.config.output_dir) not in text
+    assert str(trained_run.config.data_path.parent) not in text
+    assert not re.search(r"[A-Za-z]:[\\/]", text)  # 磁碟代號
+    assert "\\\\" not in text and "/Users/" not in text and "/home/" not in text
+    assert json.loads(text)["training"]["config"]["data_path"] == "sample_telco.csv"

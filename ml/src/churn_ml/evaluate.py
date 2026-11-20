@@ -65,9 +65,18 @@ def roc_curve_downsampled(
     y_true: NDArray[np.int64], proba: NDArray[np.float64]
 ) -> dict[str, list[float]]:
     """ROC 曲線降採樣為 FPR 0～1 間隔 0.01 共 101 點，含 (0,0) 與 (1,1)。"""
-    fpr, tpr, _ = roc_curve(y_true, proba)
+    # drop_intermediate=False：保留全部原始點，交由下方降採樣處理重複 fpr（不影響 AUC）
+    fpr, tpr, _ = roc_curve(y_true, proba, drop_intermediate=False)
     grid = np.round(np.linspace(0.0, 1.0, ROC_POINTS), 2)
-    sampled = np.interp(grid, fpr, tpr)
+    # roc_curve 會有重複的 fpr（垂直線段），np.interp 在重複 x 上取值不確定，所以自行內插：
+    # 格點剛好落在某 fpr 上 → 取該 fpr 的最大 tpr（垂直線段頂端）；
+    # 否則在「左邊最後一個點」與「右邊第一個點」之間線性內插（沿著真實 ROC 路徑）
+    left = np.searchsorted(fpr, grid + 1e-12, side="right") - 1
+    right = np.minimum(left + 1, len(fpr) - 1)
+    width = fpr[right] - fpr[left]
+    safe_width = np.where(width > 0, width, 1.0)
+    fraction = np.where(width > 0, (grid - fpr[left]) / safe_width, 0.0)
+    sampled = tpr[left] + np.clip(fraction, 0.0, 1.0) * (tpr[right] - tpr[left])
     sampled[0] = 0.0
     sampled[-1] = 1.0
     return {

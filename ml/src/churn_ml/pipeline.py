@@ -18,7 +18,7 @@ from churn_core.preprocessing import Preprocessor
 from churn_core.schema import TARGET
 from churn_ml.config import TrainConfig
 from churn_ml.data import Split, load_raw_csv, prepare_frame, split_indices
-from churn_ml.evaluate import MODEL_KEYS, evaluate, roc_curve_downsampled
+from churn_ml.evaluate import METRIC_NAMES, MODEL_KEYS, evaluate, roc_curve_downsampled
 from churn_ml.export import export_artifacts, sha256_file
 from churn_ml.models import (
     build_logreg,
@@ -185,10 +185,12 @@ def run_training(config: TrainConfig) -> TrainingResult:
 
     exported = STRATEGY_TO_VARIANT[config.imbalance_strategy]
     model_entries: list[dict[str, Any]] = []
+    unrounded: dict[str, dict[str, float]] = {}
     warnings: list[str] = []
     for key in MODEL_KEYS:
         variant = variants[(key, exported)]
         result = evaluate(y_test, variant.test_proba, variant.choice.threshold)
+        unrounded[key] = {name: float(getattr(result, name)) for name in METRIC_NAMES}
         model_entries.append(
             {
                 "key": key,
@@ -255,6 +257,8 @@ def run_training(config: TrainConfig) -> TrainingResult:
         "n_features": preprocessor.n_features,
         "feature_names": preprocessor.feature_names,
         "packages": packages,
+        # 未四捨五入的指標：churn-verify 以此判斷 NFR（metrics.json 為 4 位小數）
+        "unrounded_metrics": unrounded,
         "total_charges_estimate_error": estimate_error_stats(cleaned.iloc[split.train]),
         "imbalance_strategy": config.imbalance_strategy,
         "training": {

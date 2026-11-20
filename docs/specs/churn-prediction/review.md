@@ -66,3 +66,11 @@
 
 ### 給 T6 的提醒
 - Pydantic `Literal[0,1]` 會接受 JSON `true` 與 `1.0`（strict 模式也接受 `true`）；`tenure: int` 會接受 `10.0`。SeniorCitizen、tenure 須用 `StrictInt`＋範圍，並補 `true`、`1.0`、`10.0` 的 422 測試。
+
+### R2 複查（2026-11-20）
+- 結果：可以合併，無必須修。建議修 1、2、4a–4e 均已修正。
+- ml：NFR 判斷改用 manifest 的 `unrounded_metrics`（metrics.json 結構不變），0.81996 判未達標；manifest 只記檔名；環境變數移至 `churn_ml/__init__.py`；`files` 非 dict 判未達標；ROC 降採樣改自行內插並保留全部原始點。
+- backend：inference 改回傳 `ModelDescriptor`；例外攔截拆為 `UnhandledExceptionMiddleware` 置於 CORS 內側，跨來源 500 帶正確 CORS 標頭與 X-Request-ID，log path 正確。
+- 複查唯一建議（註解不精確）已由主管修正。
+- 主管驗證：全專案 pytest 321 passed，mypy 34 檔、ruff check／format 全過。
+- 已知且保留：TF 啟動時的 oneDNN 說明訊息（關閉需 `TF_ENABLE_ONEDNN_OPTS=0`，會改變數值運算與可重現性）。

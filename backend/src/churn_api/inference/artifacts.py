@@ -23,7 +23,6 @@ import numpy as np
 from numpy.typing import NDArray
 
 from churn_api.logging_config import log_event
-from churn_api.schemas.common import ModelInfo
 from churn_core.preprocessing import Preprocessor
 
 logger = logging.getLogger("churn_api.artifacts")
@@ -44,6 +43,16 @@ class ArtifactLoadError(Exception):
 
 
 @dataclass(frozen=True)
+class ModelDescriptor:
+    """模型的顯示資訊（inference 層自有型別；路由層再轉成 API 的 ModelInfo）。"""
+
+    name: str
+    display_name: str
+    version: str
+    trained_at: str
+
+
+@dataclass(frozen=True)
 class ArtifactBundle:
     """已通過雜湊與維度驗證的模型產物。"""
 
@@ -56,8 +65,8 @@ class ArtifactBundle:
     trained_at: str
 
     @property
-    def model_info(self) -> ModelInfo:
-        return ModelInfo(
+    def model_info(self) -> ModelDescriptor:
+        return ModelDescriptor(
             name=MODEL_NAME,
             display_name=MODEL_DISPLAY_NAME,
             version=self.model_version,

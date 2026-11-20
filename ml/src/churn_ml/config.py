@@ -40,8 +40,8 @@ class TrainConfig:
             raise ValueError("test_size、validation_size 需介於 (0, 1)")
 
     def to_dict(self) -> dict[str, object]:
-        """可寫入 JSON 的設定（路徑轉字串）。"""
+        """可寫入 manifest 的設定。路徑只留名稱，避免洩漏本機完整路徑（含使用者名稱）。"""
         data = asdict(self)
-        data["data_path"] = str(self.data_path)
-        data["output_dir"] = str(self.output_dir)
+        data["data_path"] = self.data_path.name
+        data["output_dir"] = self.output_dir.name
         return data

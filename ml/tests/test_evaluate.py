@@ -86,3 +86,36 @@ def test_structure_check_detects_problems(trained_run: TrainingResult, mutate) -
     data = _good(trained_run)
     mutate(data)
     assert check_metrics_structure(data) != []
+
+
+def test_roc_downsampling_is_exact_with_repeated_fpr() -> None:
+    # ROC 路徑：(0,0)→(0,.5)→(.5,.5)→(.5,1)→(1,1)，fpr=0 與 0.5 各有垂直線段
+    y = np.array([1, 0, 1, 0], dtype=np.int64)
+    p = np.array([0.9, 0.8, 0.7, 0.1])
+    roc = roc_curve_downsampled(y, p)
+    by_fpr = dict(zip(roc["fpr"], roc["tpr"], strict=True))
+
+    assert by_fpr[0.0] == 0.0  # 起點固定為 (0,0)
+    assert by_fpr[0.01] == 0.5  # fpr 剛離開 0：垂直線段頂端
+    assert by_fpr[0.25] == 0.5
+    assert by_fpr[0.49] == 0.5
+    assert by_fpr[0.5] == 1.0  # 重複 fpr 取 tpr 最大值
+    assert by_fpr[0.51] == 1.0
+    assert by_fpr[1.0] == 1.0
+
+
+def test_roc_downsampling_keeps_auc_close() -> None:
+    rng = np.random.default_rng(3)
+    y = rng.integers(0, 2, 500).astype(np.int64)
+    p = np.clip(y * 0.4 + rng.random(500) * 0.6, 0, 1)
+    roc = roc_curve_downsampled(y, p)
+    area = float(np.trapezoid(roc["tpr"], roc["fpr"]))
+    assert area == pytest.approx(evaluate(y, p, 0.5).roc_auc, abs=0.01)
+
+
+def test_roc_curve_keeps_staircase_corners() -> None:
+    # 預設 drop_intermediate=True 會把 (0.5, 0.5) 這個轉角丟掉，曲線在 fpr=0.25 變成 0.75
+    y = np.array([1, 0, 1, 0], dtype=np.int64)
+    p = np.array([0.9, 0.8, 0.7, 0.1])
+    by_fpr = dict(zip(*roc_curve_downsampled(y, p).values(), strict=True))
+    assert by_fpr[0.25] == 0.5
