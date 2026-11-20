@@ -8,8 +8,6 @@ import numpy
 import pandas
 import tensorflow as tf
 
-from churn_ml.cli import train_main, verify_main
-
 
 def test_python_version() -> None:
     assert sys.version_info[:3] == (3, 14, 8)
@@ -25,8 +23,3 @@ def test_pinned_package_versions() -> None:
     assert version("numpy") == "2.5.4"
     assert version("pandas") == "3.0.6"
     assert version("keras-nightly") == "3.16.0.dev2026101704"
-
-
-def test_console_script_stubs_return_zero() -> None:
-    assert train_main() == 0
-    assert verify_main() == 0

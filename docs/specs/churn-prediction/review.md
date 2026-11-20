@@ -39,3 +39,30 @@
 ### 複查驗證重點
 - 前端 `Math.round` 與後端 half-up：窮舉 tenure 0–72 × MonthlyCharges 0.00–200.00（146 萬組）0 筆不一致。
 - 主管重跑：core 136 passed（覆蓋率 99.04%）；frontend lint／type-check／format／84 tests 通過。
+
+## R2：T3 訓練管線＋T5 後端基礎層（2026-11-20）
+
+- 審核等級：完整（opus）。理由：T3 為新的 ML 商業邏輯；T5 涉及錯誤碼合約、環境設定、CORS、log。
+- 結果：可以合併，無必須修。
+- 主管另行處理：補 `core/src/churn_core/py.typed`，移除 ml／backend 共 12 個 `# type: ignore[import-untyped]`；全部 pytest 311 passed、mypy／ruff 全專案通過。
+
+### 重點驗證
+- 資料洩漏：無（前處理只 fit 訓練子集、門檻只用驗證集、測試集只做評估）。
+- 可重現性：合成資料兩個獨立行程訓練結果完全相同。
+- T3 產物 → T5 `load_artifacts`：手動端到端載入成功，格式一致。
+- T5：錯誤回應不洩漏堆疊／路徑；CORS 白名單且不給 credentials；X-Request-ID 白名單字元；log 不記輸入值。
+
+### 建議修（T4 前處理第 1、2 項）
+| # | 問題 | 位置 | 主管確認 |
+|---|---|---|---|
+| 1 | churn-verify 用四捨五入到 4 位後的值判斷 NFR，AUC 0.81996 會被誤判通過 | `ml/src/churn_ml/export.py:137-151`、`evaluate.py:129` | ✅ 已讀程式確認 |
+| 2 | 傳絕對路徑時 manifest 會記本機完整路徑（含 Windows 使用者名稱），manifest 進版控會公開 | `ml/src/churn_ml/config.py:42-47` | ✅ 已讀程式確認 |
+| 3 | 缺「T3 實際產物 → T5 載入」自動化測試 | T6 `test_feature_parity` 或 T14 | — |
+| 4a | `reproducibility.py` 的 TF 環境變數在 `import keras` 之後才設定，來不及生效 | `ml/src/churn_ml/models.py:7` | — |
+| 4b | inference 層 import `schemas.common.ModelInfo`，違反 design 1.3 分層 | `backend/src/churn_api/inference/artifacts.py:26` | — |
+| 4c | middleware 產生的 500 未經 CORS；log path 為 None | `backend/src/churn_api/middleware.py:73-75` | — |
+| 4d | `manifest.files` 非 dict 時 verify 崩潰 | `ml/src/churn_ml/export.py:117` | — |
+| 4e | ROC 降採樣遇 fpr 重複值取值不精確（只影響畫面） | `ml/src/churn_ml/evaluate.py:165` | — |
+
+### 給 T6 的提醒
+- Pydantic `Literal[0,1]` 會接受 JSON `true` 與 `1.0`（strict 模式也接受 `true`）；`tenure: int` 會接受 `10.0`。SeniorCitizen、tenure 須用 `StrictInt`＋範圍，並補 `true`、`1.0`、`10.0` 的 422 測試。
