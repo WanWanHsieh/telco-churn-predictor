@@ -1,16 +1,15 @@
 # 交接：telco-churn-predictor
 
 ## 目前狀態（2026-11-20）
-- 分支：`feat/project-skeleton`（未 push）。最新 commit：`2480428` Docker＋README。
-- 已完成：T1–T9、T12（tasks.md 打勾）；T17 README 完成單筆預測部分。
+- 分支：`feat/project-skeleton`（未 push）。最新 commit：成效頁、批次頁、CI、ADR。
+- 已完成：T1–T12、T16、T17（tasks.md 打勾）；T13 ci.yml 已寫，待 push 後在 GitHub 實跑確認。
 - 單筆預測已從頭到尾跑通：`docker compose up --build` → http://localhost:8080。
 - 做法以專案根目錄 `CLAUDE.md` 為準：主對話直接實作、輕量審核、只讀指定規格段落。
 - 審核紀錄：`docs/specs/churn-prediction/review.md`（R1–R4）。
 
 ## 尚未完成
-- T10 成效頁、T11 批次頁（API 已完成）
-- T13 GitHub Actions CI、T14 整合／效能測試、T15 Playwright E2E
-- T16 ADR、T17 補成效頁與批次頁截圖及 ADR 連結、T18 整合審核
+- T13：push 到 GitHub 後確認三個 job 皆綠（需使用者同意 push）
+- T14 整合／效能測試、T15 Playwright E2E、T18 整合審核（使用者尚未決定是否做）
 
 ## 重要決定（規格檔外）
 - 不可動全域 Python（C:\Program Files\Python314）；一律 `uv run`／專案 `.venv`。版本：Python 3.14.8、tensorflow 2.22.0rc0、keras-nightly 3.16.0.dev2026101704、numpy 2.5.4、pandas 3.0.6、Node 22。
