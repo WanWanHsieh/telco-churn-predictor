@@ -1,27 +1,24 @@
 # 交接：telco-churn-predictor
 
 ## 目前狀態（2026-11-20）
-- 分支：`feat/project-skeleton`（未 push）
-- commit：`35c68dc` T1 骨架、`7b0995c` T2 core＋T8 前端表單＋規格更新
-- tasks.md：T1、T2、T8 已完成打勾，其餘 15 個未開始
-- 規格以 `docs/specs/churn-prediction/` 為準：requirements.md、ui.md、design.md、tasks.md、review.md
+- 分支：`feat/project-skeleton`（未 push）。最新 commit：`2480428` Docker＋README。
+- 已完成：T1–T9、T12（tasks.md 打勾）；T17 README 完成單筆預測部分。
+- 單筆預測已從頭到尾跑通：`docker compose up --build` → http://localhost:8080。
+- 做法以專案根目錄 `CLAUDE.md` 為準：主對話直接實作、輕量審核、只讀指定規格段落。
+- 審核紀錄：`docs/specs/churn-prediction/review.md`（R1–R4）。
 
-## 下一步
-- 依 tasks.md 相依圖：T3（ml 訓練，backend-dev）∥ T5（backend 骨架，backend-dev）可開工；T9 需 T6＋T8
-- 派工前先跟使用者確認角色與審核等級
+## 尚未完成
+- T10 成效頁、T11 批次頁（API 已完成）
+- T13 GitHub Actions CI、T14 整合／效能測試、T15 Playwright E2E
+- T16 ADR、T17 補成效頁與批次頁截圖及 ADR 連結、T18 整合審核
 
-## 已確認的重要決定（規格檔外的補充）
-- 環境：沿用使用者上課版本，**不可動全域 Python**（C:\Program Files\Python314）。Python 3.14.8、tensorflow 2.22.0rc0、keras-nightly 3.16.0.dev2026101704、numpy 2.5.4、pandas 3.0.6、Node 22，一律 `uv run`／專案 `.venv`
-- 改設定檔（vitest/vite/tsconfig/pyproject 等）與安裝套件前要先問使用者
-- UI：Element Plus；不用 `@` 路徑別名（未裝 @types/node）
-- commit message 用 Conventional Commits，不加 AI 署名
-- Docker Desktop 需使用者手動啟動
+## 重要決定（規格檔外）
+- 不可動全域 Python（C:\Program Files\Python314）；一律 `uv run`／專案 `.venv`。版本：Python 3.14.8、tensorflow 2.22.0rc0、keras-nightly 3.16.0.dev2026101704、numpy 2.5.4、pandas 3.0.6、Node 22。
+- 改設定檔、安裝或下載套件／映像前要先問使用者。
+- commit 用 Conventional Commits，不加 AI 署名。
+- backend 映像 3.48 GB（TF 預發行版 2.1 GB），已列入 README 已知限制。
 
-## 派工時要提醒（來自 review.md 複查建議）
-- T7、T12：`churn_core.examples` 是 MappingProxyType，轉 JSON 前先 `dict(...)`
-- T7：批次逐列驗證效能，考慮把金額函式抽成 `money.py`
-- T13：`frontend/src/__tests__/domain/examples.spec.ts` 讀 core fixture 改用 `new URL(..., import.meta.url)`
-- design.md 6.2 補「乘法以 Decimal 精確計算」
-
-## 子代理用量
-- 本 session 已派 8 個（pm、designer、architect、devops、backend-dev、frontend-dev、reviewer 等），新 session 重新計算
+## 給後續任務的提醒
+- T13：`frontend/src/__tests__/domain/examples.spec.ts` 讀 core fixture 改用 `new URL(..., import.meta.url)`；CI 用 Linux，`contracts/openapi.json` 的 `--check` 不受 Windows 換行影響。
+- T10：成效數字用 `formatMetric`（`toFixed(3)`），與 README 一致。
+- 本機若有殘留的 uvicorn 佔用 8000 埠，`docker compose up` 會失敗。
