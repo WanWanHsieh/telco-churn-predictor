@@ -1,0 +1,9 @@
+dist
+coverage
+node_modules
+package-lock.json
+src/api/schema.gen.ts
+auto-imports.d.ts
+components.d.ts
+playwright-report
+test-results

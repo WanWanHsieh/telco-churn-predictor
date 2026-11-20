@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>顧客流失預測（設計原型）</title>
+<style>
+:root{--primary:#2563EB;--text:#1F2937;--sub:#4B5563;--bg:#F5F7FA;--card:#fff;--border:#DCDFE6;
+--low-bg:#E8F5EC;--low:#17633A;--low-bd:#8FD0A6;--mid-bg:#FFF4DB;--mid:#8A5A00;--mid-bd:#E8C16A;--high-bg:#FDECEA;--high:#B42318;--high-bd:#F0A59E}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 -apple-system,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+header{background:#fff;border-bottom:1px solid var(--border)}
+.nav{max-width:1200px;margin:auto;padding:0 16px;display:flex;align-items:center;justify-content:space-between;min-height:56px}
+.brand b{font-size:16px}.brand span{color:var(--sub);font-size:12px;margin-left:8px}
+.nav ul{list-style:none;margin:0;padding:0;display:flex}
+.nav a,.nav button.tab{display:flex;align-items:center;min-height:56px;padding:0 14px;color:var(--text);text-decoration:none;background:none;border:0;border-bottom:3px solid transparent;font:inherit;cursor:pointer}
+.nav [aria-current=page]{border-bottom-color:var(--primary);font-weight:700;color:var(--primary)}
+.burger{display:none;min-width:44px;min-height:44px;background:none;border:1px solid var(--border);border-radius:4px;font-size:18px}
+main{max-width:1200px;margin:auto;padding:20px 16px 8px}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 12px}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:16px}
+.layout{display:grid;grid-template-columns:58fr 42fr;gap:16px;align-items:start}
+.result{position:sticky;top:16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px}
+.field{margin-bottom:12px}
+.field>label,.field>.lab{display:block;font-weight:600;margin-bottom:4px}
+.field small.en{color:var(--sub);font-weight:400;margin-left:6px}
+.req::after{content:" *";color:var(--high)}
+.hint{color:var(--sub);font-size:12px;margin-top:2px}
+.tag{display:inline-block;background:#EEF0F3;color:var(--sub);border-radius:3px;padding:0 6px;font-size:12px;margin-left:6px}
+.seg{display:inline-flex;flex-wrap:wrap;gap:8px}
+.seg label{position:relative}
+.seg input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg span{display:flex;align-items:center;min-height:44px;padding:0 16px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer}
+.seg input:checked+span{background:var(--primary);border-color:var(--primary);color:#fff}
+.seg input:focus-visible+span{outline:2px solid var(--primary);outline-offset:2px}
+.seg input:disabled+span{background:#F0F2F5;color:var(--sub);cursor:not-allowed}
+.seg input:disabled:checked+span{background:#E4E7EC;color:var(--text);border-color:#C0C4CC}
+input.num,select{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:4px;font:inherit;background:#fff;color:var(--text)}
+.invalid input.num,.invalid select{border-color:var(--high)}
+.err{display:none;color:var(--high);font-size:12px;margin-top:2px}
+.invalid .err{display:block}
+.err::before{content:"! ";font-weight:700}
+.btn{min-height:44px;padding:0 20px;border-radius:4px;border:1px solid var(--border);background:#fff;font:inherit;cursor:pointer;color:var(--text)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.actions{display:flex;gap:12px;justify-content:flex-end}
+.alert{border-radius:4px;padding:10px 12px;margin-bottom:12px;border:1px solid}
+.alert.error{background:var(--high-bg);border-color:var(--high-bd);color:var(--high)}
+.alert.info{background:#EEF4FF;border-color:#B6CBFA;color:#1E40AF}
+.alert[hidden]{display:none}
+.empty{border:2px dashed var(--border);border-radius:4px;padding:32px 16px;text-align:center;color:var(--sub)}
+.empty b{display:block;color:var(--text);font-size:16px;margin-bottom:4px}
+.skel div{background:linear-gradient(90deg,#eceff3,#f7f8fa,#eceff3);background-size:200% 100%;animation:sh 1.2s infinite;border-radius:4px;margin-bottom:10px}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel div{animation:none}}
+.prob{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.badge{display:inline-flex;align-items:center;gap:4px;border:1px solid;border-radius:4px;padding:2px 10px;font-weight:700}
+.badge.low{background:var(--low-bg);color:var(--low);border-color:var(--low-bd)}
+.badge.mid{background:var(--mid-bg);color:var(--mid);border-color:var(--mid-bd)}
+.badge.high{background:var(--high-bg);color:var(--high);border-color:var(--high-bd)}
+.ruler{position:relative;height:12px;margin:22px 0 22px;display:flex;border-radius:2px;overflow:hidden}
+.ruler i{display:block;height:100%}
+.ruler .l{width:30%;background:var(--low-bd)}.ruler .m{width:30%;background:var(--mid-bd)}.ruler .h{width:40%;background:var(--high-bd)}
+.ptr{position:absolute;top:-14px;transform:translateX(-50%);font-size:14px}
+.ticks{position:relative;height:14px;font-size:12px;color:var(--sub);margin-top:-16px}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.factors{list-style:none;margin:0;padding:0}
+.factors li{display:grid;grid-template-columns:20px 1fr auto;gap:4px 8px;align-items:center;padding:8px 0;border-top:1px solid #EEF0F3}
+.dir{font-size:12px;font-weight:700;border-radius:3px;padding:0 6px;border:1px solid}
+.dir.up{color:var(--high);background:var(--high-bg);border-color:var(--high-bd)}
+.dir.down{color:var(--low);background:var(--low-bg);border-color:var(--low-bd)}
+.dv{grid-column:2 / 4;position:relative;height:14px;background:#F3F4F6}
+.dv::before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px solid #9CA3AF}
+.dv b{position:absolute;top:2px;bottom:2px}
+.dv .u{left:50%;background:var(--high)}.dv .d{right:50%;background:var(--low)}
+.num-v{font-variant-numeric:tabular-nums;font-size:12px;color:var(--sub);margin-left:6px}
+.note{color:var(--sub);font-size:12px;margin:8px 0 0}
+.disc{border-top:1px solid var(--border);margin-top:12px;padding-top:8px;color:var(--sub);font-size:12px}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid #EEF0F3;padding:8px 10px;text-align:left}
+th{background:#FAFAFA;font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.desc{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border:1px solid var(--border);border-radius:4px}
+.desc div{padding:10px 12px;border-right:1px solid var(--border)}
+.desc div:last-child{border-right:0}.desc small{display:block;color:var(--sub)}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.cm{display:grid;grid-template-columns:auto 1fr 1fr;gap:4px;max-width:420px}
+.cm .c{padding:10px;border-radius:4px;text-align:center;min-height:90px}
+.cm .c b{font-size:20px;display:block}
+.cm .h{font-size:12px;color:var(--sub);display:flex;align-items:center;justify-content:center}
+.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.sum .card{margin:0;text-align:center}.sum .v{font-size:24px;font-weight:700}
+.upload{border:2px dashed var(--border);border-radius:4px;padding:32px 16px;text-align:center;background:#fff;cursor:pointer;min-height:120px}
+.view{display:none}.view.on{display:block}
+.states{font-size:12px;color:var(--sub);margin:0 0 12px}
+.states button{min-height:32px;margin-right:6px;border:1px solid var(--border);background:#fff;border-radius:4px;cursor:pointer}
+footer{max-width:1200px;margin:auto;padding:8px 16px 24px;color:var(--sub);font-size:12px}
+details{margin-top:8px;font-size:12px}
+@media (max-width:1023px){.layout{grid-template-columns:1fr}.result{position:static}.charts{grid-template-columns:1fr}}
+@media (max-width:767px){
+ .nav ul{display:none;position:absolute;top:56px;left:0;right:0;background:#fff;flex-direction:column;border-bottom:1px solid var(--border);z-index:5}
+ .nav ul.open{display:flex}.nav a,.nav button.tab{min-height:48px;border-bottom:0;border-left:3px solid transparent}
+ .nav [aria-current=page]{border-left-color:var(--primary)}
+ .burger{display:block}.brand span{display:none}
+ .grid2{grid-template-columns:1fr}.prob{font-size:32px}.desc{grid-template-columns:1fr}.desc div{border-right:0;border-bottom:1px solid var(--border)}
+ input.num,select{font-size:16px}.sum{grid-template-columns:1fr 1fr}
+ .actions{position:sticky;bottom:0;background:#fff;padding:8px 0;margin:0 -16px -16px;padding:8px 16px;border-top:1px solid var(--border)}
+ .actions .btn.primary{flex:1}
+ .tbl-wide{display:none}.tbl-t{display:table!important}
+}
+.tbl-t{display:none}
+</style>
+</head>
+<body>
+<header><div class="nav">
+ <div class="brand"><b>顧客流失預測</b><span>Telco Churn Predictor</span></div>
+ <button class="burger" aria-label="展開選單" aria-expanded="false" id="burger">☰</button>
+ <nav aria-label="主選單"><ul id="menu">
+  <li><button class="tab" data-v="predict" aria-current="page">單筆預測</button></li>
+  <li><button class="tab" data-v="perf">模型成效</button></li>
+  <li><button class="tab" data-v="batch">批次預測</button></li>
+  <li><a href="#" onclick="return false">API 文件 ↗</a></li>
+ </ul></nav>
+</div></header>
+
+<main>
+<!-- ===== 單筆預測 ===== -->
+<section class="view on" id="v-predict">
+ <div class="bar"><h1>單筆顧客流失預測</h1>
+  <div><span class="hint">載入範例：</span>
+  <button class="btn" type="button" id="exHigh">高風險範例</button>
+  <button class="btn" type="button" id="exLow">低風險範例</button></div></div>
+ <div class="layout">
+ <form id="f" novalidate>
+  <div class="alert error" role="alert" id="sumErr" hidden></div>
+  <p class="hint" style="margin-top:0">標示 * 的欄位必填。</p>
+  <div class="card"><h2>A. 基本資料</h2><div class="grid2">
+   <div class="field" data-k="gender"><span class="lab req" id="l-gender">性別<small class="en">gender</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-gender"><label><input type="radio" name="gender" value="Female"><span>女</span></label><label><input type="radio" name="gender" value="Male"><span>男</span></label></div><div class="err">請選擇性別</div></div>
+   <div class="field" data-k="SeniorCitizen"><span class="lab req" id="l-sc">是否為年長者（65 歲以上）<small class="en">SeniorCitizen</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-sc"><label><input type="radio" name="SeniorCitizen" value="0"><span>否</span></label><label><input type="radio" name="SeniorCitizen" value="1"><span>是</span></label></div><div class="err">請選擇是否為年長者</div></div>
+   <div class="field" data-k="Partner"><span class="lab req" id="l-pa">有無配偶<small class="en">Partner</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-pa"><label><input type="radio" name="Partner" value="Yes"><span>有</span></label><label><input type="radio" name="Partner" value="No"><span>無</span></label></div><div class="err">請選擇有無配偶</div></div>
+   <div class="field" data-k="Dependents"><span class="lab req" id="l-de">有無撫養對象<small class="en">Dependents</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-de"><label><input type="radio" name="Dependents" value="Yes"><span>有</span></label><label><input type="radio" name="Dependents" value="No"><span>無</span></label></div><div class="err">請選擇有無撫養對象</div></div>
+   <div class="field" data-k="tenure"><label class="req" for="tenure" style="font-weight:600">在網月數<small class="en">tenure</small></label>
+    <input class="num" id="tenure" inputmode="numeric" placeholder="0 至 72（個月）"><div class="err" id="e-tenure">請輸入在網月數</div></div>
+  </div></div>
+
+  <div class="card"><h2>B. 電話與網路服務</h2><div class="grid2">
+   <div class="field" data-k="PhoneService"><span class="lab req" id="l-ph">電話服務<small class="en">PhoneService</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-ph"><label><input type="radio" name="PhoneService" value="Yes"><span>有</span></label><label><input type="radio" name="PhoneService" value="No"><span>無</span></label></div><div class="err">請選擇是否有電話服務</div></div>
+   <div class="field" data-k="MultipleLines"><span class="lab req" id="l-ml">多線電話<small class="en">MultipleLines</small><span class="tag" id="t-ml" hidden>自動設定</span></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-ml" id="g-ml"><label><input type="radio" name="MultipleLines" value="Yes" disabled><span>有</span></label><label><input type="radio" name="MultipleLines" value="No" disabled><span>無</span></label><label hidden id="o-ml"><input type="radio" name="MultipleLines" value="No phone service" disabled><span>無電話服務</span></label></div><div class="hint" id="h-ml">請先選擇電話服務</div><div class="err">請選擇是否有多線電話</div></div>
+   <div class="field" data-k="InternetService"><span class="lab req" id="l-is">網路服務<small class="en">InternetService</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-is"><label><input type="radio" name="InternetService" value="DSL"><span>DSL</span></label><label><input type="radio" name="InternetService" value="Fiber optic"><span>光纖</span></label><label><input type="radio" name="InternetService" value="No"><span>無</span></label></div><div class="err">請選擇網路服務類型</div></div>
+   <div></div>
+   <div id="net" style="display:contents"></div>
+  </div></div>
+
+  <div class="card"><h2>C. 合約與付款</h2><div class="grid2">
+   <div class="field" data-k="Contract"><label class="req" for="Contract" style="font-weight:600">合約類型<small class="en">Contract</small></label>
+    <select id="Contract"><option value="">請選擇</option><option value="Month-to-month">月繳（Month-to-month）</option><option value="One year">一年約（One year）</option><option value="Two year">兩年約（Two year）</option></select><div class="err">請選擇合約類型</div></div>
+   <div class="field" data-k="PaperlessBilling"><span class="lab req" id="l-pb">電子帳單<small class="en">PaperlessBilling</small></span>
+    <div class="seg" role="radiogroup" aria-labelledby="l-pb"><label><input type="radio" name="PaperlessBilling" value="Yes"><span>是</span></label><label><input type="radio" name="PaperlessBilling" value="No"><span>否</span></label></div><div class="err">請選擇是否使用電子帳單</div></div>
+   <div class="field" data-k="PaymentMethod" style="grid-column:1/-1"><label class="req" for="PaymentMethod" style="font-weight:600">付款方式<small class="en">PaymentMethod</small></label>
+    <select id="PaymentMethod"><option value="">請選擇</option><option>電子支票（Electronic check）</option><option>郵寄支票（Mailed check）</option><option>銀行自動轉帳（Bank transfer (automatic)）</option><option>信用卡自動扣款（Credit card (automatic)）</option></select><div class="err">請選擇付款方式</div></div>
+  </div></div>
+
+  <div class="card"><h2>D. 費用</h2><div class="grid2">
+   <div class="field" data-k="MonthlyCharges"><label class="req" for="mc" style="font-weight:600">月費<small class="en">MonthlyCharges</small></label>
+    <input class="num" id="mc" inputmode="decimal" placeholder="$ 0 至 200"><div class="err" id="e-mc">請輸入月費</div></div>
+   <div class="field" data-k="TotalCharges"><label for="tc" style="font-weight:600">累計費用（選填）<small class="en">TotalCharges</small></label>
+    <input class="num" id="tc" inputmode="decimal" placeholder="$ 可留空"><div class="hint">不填寫時，系統會以「在網月數 × 月費」估算。</div><div class="err" id="e-tc">累計費用需為 0 以上的數字</div></div>
+  </div></div>
+  <div class="actions"><button class="btn" type="button" id="clr">清除</button><button class="btn primary" type="submit" id="go">預測</button></div>
+ </form>
+
+ <aside class="card result" aria-live="polite" id="res" aria-label="預測結果">
+  <p class="states">原型狀態切換：<button type="button" data-s="empty">空</button><button type="button" data-s="loading">載入中</button><button type="button" data-s="error">伺服器錯誤</button></p>
+  <div id="r-empty" class="empty"><b>尚未預測</b>填寫左側顧客資料後，按「預測」查看流失機率與主要影響因素。<br><span style="font-size:12px">或按上方「載入範例」快速體驗</span></div>
+  <div id="r-loading" class="skel" hidden aria-busy="true"><div style="height:44px;width:60%"></div><div style="height:24px"></div><div style="height:16px"></div><div style="height:40px"></div><div style="height:40px"></div><div style="height:40px"></div></div>
+  <div id="r-error" hidden><div class="alert error" role="alert"><b>服務暫時無法使用</b><br>系統目前無法完成預測，您填寫的資料仍保留。請稍後再試，若持續發生請通知管理者。</div><button class="btn primary" type="button" id="retry">重試</button><details><summary>技術細節</summary>HTTP 503（預設收合，僅供開發者）</details></div>
+  <div id="r-ok" hidden>
+   <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 tabindex="-1" id="r-h">預測結果</h2><span class="hint">模型：Keras 神經網路</span></div>
+   <div class="hint">流失機率</div><div class="prob" id="p">--</div>
+   <div style="margin:6px 0"><span class="badge" id="rb"></span> <span class="hint" id="rr"></span></div>
+   <div class="ruler" role="img" id="ruler" aria-label=""><i class="l"></i><i class="m"></i><i class="h"></i><span class="ptr" id="ptr">▼</span></div>
+   <div class="ticks"><span style="left:0">0%</span><span style="left:30%">30%</span><span style="left:60%">60%</span><span style="left:100%">100%</span></div>
+   <div class="alert info" id="tcNote" style="margin-top:18px" hidden></div>
+   <h2 style="margin-top:16px">影響此預測的前 5 大因素</h2>
+   <ul class="factors" id="fs"></ul>
+   <p class="note">這些因素是模型做出判斷的依據，不代表真正的因果關係。</p>
+   <div class="disc">模型以公開範例資料訓練，僅供展示，不可用於真實決策</div>
+  </div>
+ </aside>
+ </div>
+</section>
+
+<!-- ===== 模型成效 ===== -->
+<section class="view" id="v-perf">
+ <div class="bar"><h1>模型成效</h1></div>
+ <p class="states">原型數字皆為示意值。</p>
+ <p>模型在訓練時從未看過的測試資料上的表現，並與簡單的基準模型比較。</p>
+ <div class="desc card" style="padding:0">
+  <div><small>訓練集筆數</small>5,634</div><div><small>測試集筆數</small>1,409</div><div><small>測試集流失比例</small>26.5%</div><div><small>決策門檻 ／ 訓練日期</small>0.45 ／ 2026-11-20</div></div>
+ <div class="card"><h2>模型指標比較</h2>
+  <table class="tbl-wide"><thead><tr><th>模型</th><th class="n">ROC-AUC <span class="tag">主要指標</span></th><th class="n">Precision</th><th class="n">Recall <span class="tag">主要指標</span></th><th class="n">F1</th><th class="n">Accuracy</th></tr></thead>
+  <tbody><tr><td>邏輯迴歸（基準）</td><td class="n"><b>0.842</b></td><td class="n">0.512</td><td class="n"><b>0.781</b></td><td class="n">0.619</td><td class="n">0.742</td></tr>
+  <tr><td>Keras 神經網路</td><td class="n">0.839</td><td class="n"><b>0.534</b></td><td class="n">0.764</td><td class="n"><b>0.629</b></td><td class="n"><b>0.761</b></td></tr></tbody></table>
+  <table class="tbl-t"><thead><tr><th>指標</th><th class="n">邏輯迴歸</th><th class="n">Keras</th></tr></thead><tbody>
+  <tr><td>ROC-AUC</td><td class="n"><b>0.842</b></td><td class="n">0.839</td></tr><tr><td>Precision</td><td class="n">0.512</td><td class="n"><b>0.534</b></td></tr><tr><td>Recall</td><td class="n"><b>0.781</b></td><td class="n">0.764</td></tr><tr><td>F1</td><td class="n">0.619</td><td class="n"><b>0.629</b></td></tr><tr><td>Accuracy</td><td class="n">0.742</td><td class="n"><b>0.761</b></td></tr></tbody></table>
+  <p class="note">粗體為該指標較佳者。資料約 26.5% 為流失，若全部猜「不流失」就有約 73.5% 的 Accuracy，所以本專案以 ROC-AUC 與 Recall 為主要指標。</p></div>
+ <div class="charts">
+  <div class="card"><h2>ROC 曲線</h2>
+   <svg viewBox="0 0 300 300" width="100%" role="img" aria-label="ROC 曲線：邏輯迴歸 AUC 0.842，Keras AUC 0.839，兩條曲線接近">
+    <rect x="40" y="10" width="250" height="250" fill="#fff" stroke="#DCDFE6"/>
+    <line x1="40" y1="260" x2="290" y2="10" stroke="#9CA3AF" stroke-dasharray="2 4"/>
+    <path d="M40 260 C50 150 80 70 140 48 S250 18 290 10" fill="none" stroke="#6B7280" stroke-width="2.5" stroke-dasharray="8 5"/>
+    <path d="M40 260 C52 160 85 78 145 55 S250 20 290 10" fill="none" stroke="#2563EB" stroke-width="2.5"/>
+    <text x="165" y="285" font-size="12" fill="#4B5563" text-anchor="middle">偽陽性率（False Positive Rate）</text>
+    <text x="12" y="135" font-size="12" fill="#4B5563" text-anchor="middle" transform="rotate(-90 12 135)">真陽性率（True Positive Rate）</text>
+    <g font-size="11"><line x1="150" y1="200" x2="175" y2="200" stroke="#2563EB" stroke-width="2.5"/><text x="180" y="204" fill="#1F2937">Keras（AUC 0.839）</text>
+    <line x1="150" y1="220" x2="175" y2="220" stroke="#6B7280" stroke-width="2.5" stroke-dasharray="8 5"/><text x="180" y="224" fill="#1F2937">邏輯迴歸（AUC 0.842）</text></g></svg>
+   <details><summary>資料表檢視</summary>示意：此處放 FPR／TPR 數值表。</details></div>
+  <div class="card"><h2>混淆矩陣（Keras）</h2>
+   <div class="cm"><div></div><div class="h">預測：未流失</div><div class="h">預測：流失</div>
+    <div class="h">實際<br>未流失</div><div class="c" style="background:#E5EEFD"><b>743</b>實際未流失、預測未流失<br><small>52.7%</small></div><div class="c" style="background:#F5F7FA"><b>292</b>實際未流失、預測流失<br><small>20.7%</small></div>
+    <div class="h">實際<br>流失</div><div class="c" style="background:#F5F7FA"><b>88</b>實際流失、預測未流失<br><small>6.2%</small></div><div class="c" style="background:#BFD3FA"><b>286</b>實際流失、預測流失<br><small>20.3%</small></div></div>
+   <details><summary>資料表檢視</summary>示意：TN 743、FP 292、FN 88、TP 286。</details></div>
+ </div>
+ <div class="card"><h2>如何處理</h2><p style="margin:0">流失客戶只佔約四分之一，訓練時提高流失樣本的權重，避免模型偏向猜「不流失」。決策門檻在驗證集上挑選，以兼顧 Recall 與 Precision。（示意文案）</p></div>
+</section>
+
+<!-- ===== 批次預測 ===== -->
+<section class="view" id="v-batch">
+ <div class="bar"><h1>批次預測</h1></div>
+ <p class="states">原型狀態切換：<button data-b="a">上傳</button><button data-b="b">處理中</button><button data-b="e">資料列錯誤</button><button data-b="c">結果</button></p>
+ <div style="max-width:960px">
+ <div id="b-a">
+  <p>上傳顧客名單 CSV，一次取得每位顧客的流失風險。欄位需與單筆預測相同（共 19 欄），可另加 customerID 欄位以便對照。</p>
+  <p class="hint">檔案格式：CSV，上限 5 MB 或 10,000 列。上傳的內容不會被儲存。</p>
+  <p><button class="btn" type="button">⬇ 下載範本 CSV</button></p>
+  <div class="upload" tabindex="0" role="button" aria-label="選擇 CSV 檔案">將 CSV 檔拖曳到此，或按一下選擇檔案</div>
+  <p style="margin-top:12px"><button class="btn primary" disabled id="bgo">開始預測</button></p>
+ </div>
+ <div id="b-b" hidden aria-busy="true"><div class="card"><b>正在預測 1,000 筆資料…</b><div style="height:8px;background:#E5E7EB;border-radius:4px;margin-top:10px;overflow:hidden"><div style="height:100%;width:40%;background:var(--primary)"></div></div></div><button class="btn primary" disabled>預測中…</button></div>
+ <div id="b-e" hidden>
+  <div class="alert error" role="alert"><b>有 23 列資料需要修正，整份檔案未進行預測</b>
+   <table style="margin-top:8px;color:var(--text)"><thead><tr><th>列號</th><th>欄位</th><th>原因</th></tr></thead><tbody><tr><td>7</td><td>tenure</td><td>為 -3，需為 0 至 72 的整數</td></tr><tr><td>12</td><td>Contract</td><td>「Monthly」不是有效選項</td></tr><tr><td colspan="3">另有 21 筆</td></tr></tbody></table></div>
+  <button class="btn" type="button">重新選擇檔案</button>
+ </div>
+ <div id="b-c" hidden>
+  <div class="sum"><div class="card"><div class="hint">總筆數</div><div class="v">100</div></div>
+   <div class="card"><span class="badge high">▲ 高風險</span><div class="v">21</div>筆</div>
+   <div class="card"><span class="badge mid">◆ 中風險</span><div class="v">34</div>筆</div>
+   <div class="card"><span class="badge low">▼ 低風險</span><div class="v">45</div>筆</div></div>
+  <div class="bar"><div class="seg" role="radiogroup" aria-label="風險篩選"><label><input type="radio" name="flt" checked><span>全部（100）</span></label><label><input type="radio" name="flt"><span>高（21）</span></label><label><input type="radio" name="flt"><span>中（34）</span></label><label><input type="radio" name="flt"><span>低（45）</span></label></div>
+   <div><button class="btn primary" type="button">⬇ 下載結果 CSV</button> <button class="btn" type="button">重新上傳</button></div></div>
+  <div class="card" style="padding:0"><table><thead><tr><th>#</th><th>customerID</th><th class="n">流失機率 ▼</th><th>風險等級</th></tr></thead><tbody>
+   <tr><td>1</td><td>7590-VHVEG</td><td class="n">91.2%</td><td><span class="badge high">▲ 高風險</span></td></tr>
+   <tr><td>2</td><td>3668-QPYBK</td><td class="n">74.8%</td><td><span class="badge high">▲ 高風險</span></td></tr>
+   <tr><td>3</td><td>9237-HQITU</td><td class="n">45.0%</td><td><span class="badge mid">◆ 中風險</span></td></tr>
+   <tr><td>4</td><td>5575-GNVDE</td><td class="n">8.3%</td><td><span class="badge low">▼ 低風險</span></td></tr></tbody></table></div>
+ </div>
+ </div>
+</section>
+</main>
+<footer>模型以公開範例資料訓練，僅供展示，不可用於真實決策。　｜　設計原型：假資料與假預測邏輯，僅供視覺與互動參考。</footer>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+// 導覽
+$$('.tab').forEach(b=>b.onclick=()=>{$$('.tab').forEach(x=>x.removeAttribute('aria-current'));b.setAttribute('aria-current','page');
+ $$('.view').forEach(v=>v.classList.remove('on'));$('#v-'+b.dataset.v).classList.add('on');$('#menu').classList.remove('open');});
+$('#burger').onclick=e=>{const o=$('#menu').classList.toggle('open');e.currentTarget.setAttribute('aria-expanded',o)};
+// 網路服務 6 欄
+const net=[['OnlineSecurity','線上安全服務'],['OnlineBackup','線上備份服務'],['DeviceProtection','裝置保護服務'],['TechSupport','技術支援服務'],['StreamingTV','串流電視'],['StreamingMovies','串流電影']];
+$('#net').innerHTML=net.map(([k,t])=>`<div class="field" data-k="${k}"><span class="lab req" id="l-${k}">${t}<small class="en">${k}</small><span class="tag" hidden>自動設定</span></span><div class="seg" role="radiogroup" aria-labelledby="l-${k}"><label><input type="radio" name="${k}" value="Yes" disabled><span>有</span></label><label><input type="radio" name="${k}" value="No" disabled><span>無</span></label><label hidden><input type="radio" name="${k}" value="No internet service" disabled><span>無網路服務</span></label></div><div class="hint">請先選擇網路服務</div><div class="err">請選擇是否有${t}</div></div>`).join('');
+const val=n=>{const c=document.querySelector(`input[name="${n}"]:checked`);return c?c.value:''};
+const setR=(n,v)=>{const e=document.querySelector(`input[name="${n}"][value="${v}"]`);if(e)e.checked=true};
+function syncPhone(){const p=val('PhoneService'),g=$('#g-ml'),ins=g.querySelectorAll('input');
+ const lock=p==='No';$('#o-ml').hidden=!lock;g.querySelectorAll('label:not(#o-ml) input').forEach(i=>i.disabled=(p!=='Yes'));
+ $('#o-ml input').disabled=!lock;$('#t-ml').hidden=!lock;
+ if(lock){setR('MultipleLines','No phone service')}else{if(val('MultipleLines')==='No phone service')ins.forEach(i=>i.checked=false)}
+ $('#h-ml').textContent=lock?'無電話服務時不適用':(p==='Yes'?'':'請先選擇電話服務');}
+function syncNet(){const p=val('InternetService'),lock=p==='No';
+ net.forEach(([k])=>{const f=document.querySelector(`[data-k="${k}"]`),ls=f.querySelectorAll('label');
+  ls[2].hidden=!lock;f.querySelector('.tag').hidden=!lock;
+  ls[0].querySelector('input').disabled=ls[1].querySelector('input').disabled=(p===''||lock);ls[2].querySelector('input').disabled=!lock;
+  if(lock)setR(k,'No internet service');else if(val(k)==='No internet service')f.querySelectorAll('input').forEach(i=>i.checked=false);
+  f.querySelector('.hint').textContent=lock?'無網路服務時不適用':(p?'':'請先選擇網路服務');});}
+document.addEventListener('change',e=>{if(e.target.name==='PhoneService')syncPhone();if(e.target.name==='InternetService')syncNet();
+ const f=e.target.closest('.field');if(f&&f.classList.contains('invalid'))validate(true)});
+// 驗證
+const req=['gender','SeniorCitizen','Partner','Dependents','PhoneService','MultipleLines','InternetService',...net.map(n=>n[0]),'PaperlessBilling'];
+function validate(quiet){let bad=[];const mark=(k,b)=>{const f=document.querySelector(`[data-k="${k}"]`);f.classList.toggle('invalid',b);if(b)bad.push(k)};
+ req.forEach(k=>mark(k,!val(k)));
+ ['Contract','PaymentMethod'].forEach(k=>mark(k,!$('#'+k).value));
+ const t=$('#tenure').value.trim();let bt=false;
+ if(t===''){$('#e-tenure').textContent='請輸入在網月數';bt=true}else if(!/^\d+$/.test(t)||+t>72){$('#e-tenure').textContent='在網月數需為 0 至 72 的整數';bt=true}
+ mark('tenure',bt);
+ const m=$('#mc').value.trim();let bm=false;
+ if(m===''){$('#e-mc').textContent='請輸入月費';bm=true}else if(isNaN(+m)||+m<0||+m>200){$('#e-mc').textContent='月費需介於 0 至 200 之間';bm=true}
+ mark('MonthlyCharges',bm);
+ const c=$('#tc').value.trim();mark('TotalCharges',c!==''&&(isNaN(+c)||+c<0));
+ const s=$('#sumErr');
+ if(bad.length){s.hidden=false;s.textContent=`有 ${bad.length} 個欄位需要修正，請查看標示的欄位`}else s.hidden=true;
+ return bad}
+// 結果狀態
+function show(id){['empty','loading','error','ok'].forEach(k=>$('#r-'+k).hidden=k!==id);$('#res').setAttribute('aria-busy',id==='loading')}
+$$('[data-s]').forEach(b=>b.onclick=()=>show(b.dataset.s));
+$('#f').addEventListener('submit',e=>{e.preventDefault();const bad=validate();
+ if(bad.length){const f=document.querySelector(`[data-k="${bad[0]}"]`);const i=f.querySelector('input,select');i&&i.focus();return}
+ run()});
+$('#retry').onclick=run;
+function run(){const go=$('#go');go.disabled=true;go.textContent='預測中…';show('loading');
+ setTimeout(()=>{go.disabled=false;go.textContent='預測';render();show('ok');$('#r-h').focus();
+  if(innerWidth<1024)$('#res').scrollIntoView({behavior:'smooth'})},700)}
+// 假預測（僅示意，非真實模型）
+function render(){let s=0;const F=[];
+ const ct=$('#Contract').value,t=+$('#tenure').value,mc=+$('#mc').value,pm=$('#PaymentMethod').value,is=val('InternetService');
+ if(ct==='Month-to-month'){s+=.28;F.push(['合約類型：月繳',.31])}else if(ct==='Two year'){s-=.25;F.push(['合約類型：兩年約',-.34])}else{F.push(['合約類型：一年約',-.12])}
+ if(t<=6){s+=.2;F.push(['在網月數：'+t+' 個月',.26])}else if(t>=48){s-=.15;F.push(['在網月數：'+t+' 個月',-.22])}else F.push(['在網月數：'+t+' 個月',-.05]);
+ if(is==='Fiber optic'){s+=.12;F.push(['網路服務：光纖',.15])}else if(is==='No'){s-=.1;F.push(['網路服務：無',-.13])}else F.push(['網路服務：DSL',-.04]);
+ if(pm.startsWith('電子支票')){s+=.08;F.push(['付款方式：電子支票',.11])}else if(pm.includes('自動')){s-=.06;F.push(['付款方式：自動扣款',-.09])}else F.push(['付款方式：郵寄支票',-.02]);
+ if(mc>=80){s+=.06;F.push(['月費：$'+mc,.08])}else if(mc<=40){s-=.06;F.push(['月費：$'+mc,-.1])}else F.push(['月費：$'+mc,.02]);
+ const p=Math.min(.97,Math.max(.02,.3+s)),pc=(p*100).toFixed(1);
+ $('#p').textContent=pc+'%';
+ const lv=p>=.6?['high','▲ 高風險','機率 ≥ 60%']:p>=.3?['mid','◆ 中風險','機率 30% 至未滿 60%']:['low','▼ 低風險','機率 < 30%'];
+ $('#rb').className='badge '+lv[0];$('#rb').textContent=lv[1];$('#rr').textContent=lv[2];
+ $('#ptr').style.left=pc+'%';$('#ruler').setAttribute('aria-label',`流失機率 ${pc}%，${lv[1]}；低風險小於 30%，高風險 60% 以上`);
+ const tc=$('#tc').value.trim(),n=$('#tcNote');n.hidden=tc!=='';if(tc==='')n.textContent=`累計費用未填寫，已以在網月數 × 月費估算為 $${(t*mc).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}。`;
+ F.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+ $('#fs').innerHTML=F.slice(0,5).map((f,i)=>{const up=f[1]>0,w=Math.min(50,Math.abs(f[1])*100*1.4);
+  return `<li><span class="hint">${i+1}</span><span>${f[0]} <span class="dir ${up?'up':'down'}">${up?'↑ 推高風險':'↓ 拉低風險'}</span></span><span class="num-v">${(up?'+':'')+f[1].toFixed(2)}</span><div class="dv" role="img" aria-label="${f[0]}，${up?'推高':'拉低'}風險，影響程度 ${f[1].toFixed(2)}"><b class="${up?'u':'d'}" style="width:${w}%"></b></div></li>`}).join('')}
+// 範例與清除
+function fill(o){document.querySelectorAll('#f input[type=radio]').forEach(i=>i.checked=false);
+ for(const k in o){if(['tenure','mc','tc','Contract','PaymentMethod'].includes(k))$('#'+(k==='tenure'?'tenure':k)).value=o[k];else setR(k,o[k])}
+ syncPhone();syncNet();
+ net.forEach(([k])=>{if(o[k])setR(k,o[k])});$$('.field.invalid').forEach(f=>f.classList.remove('invalid'));$('#sumErr').hidden=true}
+const base={gender:'Female',SeniorCitizen:'0',Partner:'No',Dependents:'No',PhoneService:'Yes',MultipleLines:'No',PaperlessBilling:'Yes',tc:''};
+$('#exHigh').onclick=()=>fill({...base,tenure:'1',InternetService:'Fiber optic',OnlineSecurity:'No',OnlineBackup:'No',DeviceProtection:'No',TechSupport:'No',StreamingTV:'No',StreamingMovies:'No',Contract:'Month-to-month',PaymentMethod:'電子支票（Electronic check）',mc:'100'});
+$('#exLow').onclick=()=>fill({...base,gender:'Male',Partner:'Yes',Dependents:'Yes',PaperlessBilling:'No',tenure:'70',InternetService:'No',Contract:'Two year',PaymentMethod:'銀行自動轉帳（Bank transfer (automatic)）',mc:'30'});
+$('#clr').onclick=()=>{fill({tenure:'',mc:'',tc:'',Contract:'',PaymentMethod:''});show('empty')};
+// 批次狀態
+$$('[data-b]').forEach(b=>b.onclick=()=>['a','b','e','c'].forEach(k=>$('#b-'+k).hidden=k!==b.dataset.b));
+$('#b-a .upload').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#bgo').disabled=false}};
+$('#b-a .upload').onclick=()=>{$('#bgo').disabled=false};
+syncPhone();syncNet();
+</script>
+</body>
+</html>

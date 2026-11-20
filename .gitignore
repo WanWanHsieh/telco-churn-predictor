@@ -1,0 +1,39 @@
+# 機密與環境
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# 覆蓋率產物
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+coverage/
+
+# Node / 前端
+node_modules/
+dist/
+*.tsbuildinfo
+frontend/playwright-report/
+frontend/test-results/
+
+# 暫存
+.tmp/
+
+# 原始資料（Kaggle 資料集不進版控）；models/ 進版控，不排除
+data/raw/*.csv
+
+# 編輯器 / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

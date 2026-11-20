@@ -1,0 +1,56 @@
+# uv workspace 根（虛擬根，不是可安裝套件）。設計依據：docs/specs/churn-prediction/design.md 3.2.1、10.1
+[tool.uv.workspace]
+members = ["core", "ml", "backend"]
+
+[tool.uv]
+required-version = "==0.10.2"
+python-preference = "only-system"  # 只用系統已安裝的 Python
+python-downloads = "never"         # 禁止自動下載直譯器
+environments = [
+  "sys_platform == 'win32' and platform_machine == 'AMD64'",
+  "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+
+[dependency-groups]
+dev = [
+  "ruff==0.17.6",
+  "mypy==2.4.1",
+  "pytest==9.2.0",
+  "pytest-cov==7.1.0",
+  "httpx==0.28.1",
+  "pandas-stubs==3.1.0.261029",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["core/src", "ml/src", "backend/src"]
+extend-exclude = ["frontend"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "N", "S", "RUF"]
+# 專案文件與註解使用繁體中文，全形標點不算易混淆字元
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["S101"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["tensorflow.*", "keras.*", "sklearn.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["core/tests", "ml/tests", "backend/tests"]
+addopts = "--import-mode=importlib"
+
+[tool.coverage.run]
+branch = true
+source = ["churn_core", "churn_ml", "churn_api"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = ["pragma: no cover", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]

@@ -1,0 +1,13 @@
+[project]
+name = "churn-core"
+version = "0.1.0"
+description = "Telco churn 共用核心：清理、估算、前處理（訓練與推論共用）"
+requires-python = "==3.14.*"
+dependencies = [
+  "numpy==2.5.4",
+  "pandas==3.0.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11"]
+build-backend = "uv_build"

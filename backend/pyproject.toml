@@ -1,0 +1,21 @@
+[project]
+name = "churn-api"
+version = "0.1.0"
+description = "Telco churn 預測 API（FastAPI）"
+requires-python = "==3.14.*"
+dependencies = [
+  "churn-core",
+  "tensorflow==2.22.0rc0",
+  "keras-nightly==3.16.0.dev2026101704",
+  "fastapi==0.165.0",
+  "uvicorn[standard]==0.54.0",
+  "pydantic-settings==2.16.3",
+  "python-multipart==0.0.34",
+]
+
+[tool.uv.sources]
+churn-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11"]
+build-backend = "uv_build"

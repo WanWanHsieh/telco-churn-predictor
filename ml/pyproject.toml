@@ -1,0 +1,22 @@
+[project]
+name = "churn-ml"
+version = "0.1.0"
+description = "Telco churn 離線訓練管線"
+requires-python = "==3.14.*"
+dependencies = [
+  "churn-core",
+  "tensorflow==2.22.0rc0",
+  "keras-nightly==3.16.0.dev2026101704",
+  "scikit-learn==1.9.1",
+]
+
+[project.scripts]
+churn-train = "churn_ml.cli:train_main"
+churn-verify = "churn_ml.cli:verify_main"
+
+[tool.uv.sources]
+churn-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11"]
+build-backend = "uv_build"
