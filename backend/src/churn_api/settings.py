@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     batch_max_file_bytes: int = Field(default=5_242_880, gt=0)
     batch_max_rows: int = Field(default=10_000, gt=0)
     ig_steps: int = Field(default=64, ge=16, le=256)
+    # 設定時由後端一併提供前端靜態檔（單一容器部署，例如 Hugging Face Spaces）
+    static_dir: Path | None = None
 
     @field_validator("log_level", mode="before")
     @classmethod

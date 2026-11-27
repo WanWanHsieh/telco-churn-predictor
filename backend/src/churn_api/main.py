@@ -28,6 +28,7 @@ from churn_api.services.batch_service import BatchService
 from churn_api.services.metrics_service import MetricsService
 from churn_api.services.prediction_service import PredictionService, to_model_info
 from churn_api.settings import Settings
+from churn_api.static_site import mount_frontend
 from churn_core.examples import HIGH_RISK_EXAMPLE
 from churn_core.imputation import impute_total_charges
 from churn_core.schema import FEATURES
@@ -124,6 +125,8 @@ def create_app(
 
     install_exception_handlers(app)
     app.include_router(api_router)
+    if settings.static_dir is not None:
+        mount_frontend(app, settings.static_dir)
 
     # add_middleware 後加入者在外層：
     # RequestContext（最外）→ CORS → UnhandledException → GZip → 路由
