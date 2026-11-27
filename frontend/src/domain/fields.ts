@@ -199,3 +199,61 @@ export function fieldsOfSection(section: SectionId): FieldDef[] {
 export function createEmptyValues(): FormValues {
   return Object.fromEntries(FEATURE_NAMES.map((n) => [n, null])) as FormValues
 }
+
+/** 精簡表單只要求填的基本欄位（畫面順序）；其餘欄位收在「進階欄位」，未修改時帶預設值 */
+export const BASIC_FIELDS: readonly FeatureName[] = [
+  'Contract',
+  'tenure',
+  'MonthlyCharges',
+  'InternetService',
+  'PaymentMethod',
+  'TechSupport',
+]
+
+/**
+ * 進階欄位的預設值：訓練資料（7,043 筆）中最常見的值；
+ * 網路附加服務取「有網路服務的顧客」中最常見的值，MultipleLines 取「有電話服務的顧客」中最常見的值。
+ * TotalCharges 不設預設（留空由系統以在網月數 × 月費估算）。
+ */
+export const ADVANCED_DEFAULTS: Partial<Record<FeatureName, string | number>> = {
+  gender: 'Male',
+  SeniorCitizen: 0,
+  Partner: 'No',
+  Dependents: 'No',
+  PhoneService: 'Yes',
+  MultipleLines: 'No',
+  OnlineSecurity: 'No',
+  OnlineBackup: 'No',
+  DeviceProtection: 'No',
+  StreamingTV: 'No',
+  StreamingMovies: 'No',
+  PaperlessBilling: 'Yes',
+}
+
+export function isBasicField(name: FeatureName): boolean {
+  return BASIC_FIELDS.includes(name)
+}
+
+export function basicFields(): FieldDef[] {
+  return BASIC_FIELDS.map(getField)
+}
+
+/** 進階欄位依原本的區塊分組（略過基本欄位與空區塊） */
+export function advancedSections(): { id: SectionId; title: string; fields: FieldDef[] }[] {
+  return SECTIONS.map((s) => ({
+    ...s,
+    fields: fieldsOfSection(s.id).filter((f) => !isBasicField(f.name)),
+  })).filter((s) => s.fields.length > 0)
+}
+
+/** 表單初始值：基本欄位空白，進階欄位帶預設值 */
+export function createInitialValues(): FormValues {
+  return { ...createEmptyValues(), ...ADVANCED_DEFAULTS }
+}
+
+/** 目前仍等於預設值的進階欄位（被連動鎖定的不算） */
+export function defaultedFields(values: FormValues): FeatureName[] {
+  return (Object.keys(ADVANCED_DEFAULTS) as FeatureName[]).filter(
+    (n) => values[n] === ADVANCED_DEFAULTS[n],
+  )
+}

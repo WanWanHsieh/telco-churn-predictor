@@ -1,5 +1,11 @@
 // 電話／網路連動規則（AC-1.5、1.6）：純函式，不依賴 Vue。
-import { opt, type FeatureName, type FieldOption, type FormValues } from './fields'
+import {
+  ADVANCED_DEFAULTS,
+  opt,
+  type FeatureName,
+  type FieldOption,
+  type FormValues,
+} from './fields'
 
 export interface DependencyRule {
   source: FeatureName
@@ -61,7 +67,7 @@ export function getLockState(name: FeatureName, values: FormValues): LockState {
 /**
  * 依連動規則整理整組表單值，回傳新物件（不修改輸入）。
  * - 來源為鎖定條件：目標設為固定值
- * - 否則若目標仍是舊的固定值：清回未選（改回「有」不保留舊值）
+ * - 否則若目標仍是舊的固定值：進階欄位回到預設值，基本欄位清回未選（改回「有」不保留舊值）
  */
 export function applyDependencies(values: FormValues): FormValues {
   const next: FormValues = { ...values }
@@ -71,7 +77,7 @@ export function applyDependencies(values: FormValues): FormValues {
       if (locked) {
         next[target] = rule.lockedOption.value
       } else if (next[target] === rule.lockedOption.value) {
-        next[target] = null
+        next[target] = ADVANCED_DEFAULTS[target] ?? null
       }
     }
   }

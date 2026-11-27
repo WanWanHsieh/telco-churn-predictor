@@ -32,6 +32,20 @@ describe('PredictionResult', () => {
     expect(wrapper.text()).toContain('累計費用未填寫，已以在網月數 × 月費估算為 $1,234.50。')
   })
 
+  it('有進階欄位以預設值帶入時顯示註記與欄位數', () => {
+    const wrapper = mount(PredictionResult, {
+      props: { result: makePrediction(), defaultedCount: 12 },
+    })
+    expect(wrapper.find('.result__defaulted').text()).toContain(
+      '有 12 個進階欄位與預設值（資料集中最常見的值）相同',
+    )
+  })
+
+  it('沒有欄位用預設值時不顯示預設值註記', () => {
+    const wrapper = mount(PredictionResult, { props: { result: makePrediction() } })
+    expect(wrapper.find('.result__defaulted').exists()).toBe(false)
+  })
+
   it('非估算時不顯示註記（AC-1.15）', () => {
     const result = makePrediction({ total_charges: { value: 500, is_estimated: false } })
     const wrapper = mount(PredictionResult, { props: { result } })

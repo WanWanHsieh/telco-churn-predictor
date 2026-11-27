@@ -7,7 +7,10 @@ import RiskBadge from '../common/RiskBadge.vue'
 import FactorList from './FactorList.vue'
 import ProbabilityScale from './ProbabilityScale.vue'
 
-defineProps<{ result: PredictionResponse }>()
+// defaultedCount：送出時仍為預設值的進階欄位數（0 則不顯示註記）
+withDefaults(defineProps<{ result: PredictionResponse; defaultedCount?: number }>(), {
+  defaultedCount: 0,
+})
 </script>
 
 <template>
@@ -37,6 +40,15 @@ defineProps<{ result: PredictionResponse }>()
       :closable="false"
       show-icon
       :title="`累計費用未填寫，已以在網月數 × 月費估算為 ${formatMoney(result.total_charges.value)}。`"
+    />
+
+    <el-alert
+      v-if="defaultedCount > 0"
+      class="result__estimate result__defaulted"
+      type="info"
+      :closable="false"
+      show-icon
+      :title="`有 ${defaultedCount} 個進階欄位與預設值（資料集中最常見的值）相同；填得越完整，預測越貼近實際。`"
     />
 
     <FactorList :factors="result.top_factors" />

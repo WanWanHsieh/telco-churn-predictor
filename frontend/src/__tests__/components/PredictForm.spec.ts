@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import PredictForm from '../../components/predict/PredictForm.vue'
 import { getExample } from '../../domain/examples'
-import { FEATURE_NAMES, type FeatureName } from '../../domain/fields'
+import {
+  ADVANCED_DEFAULTS,
+  BASIC_FIELDS,
+  FEATURE_NAMES,
+  createInitialValues,
+  type FeatureName,
+} from '../../domain/fields'
 import { usePredictionStore } from '../../stores/prediction'
 
 let pinia: Pinia
@@ -52,15 +58,29 @@ afterEach(() => {
 })
 
 describe('欄位呈現（AC-1.1）', () => {
-  it('顯示 19 個欄位，其中 18 個必填、TotalCharges 選填並附說明', () => {
+  it('基本欄位在前且只有這 6 欄標必填；其餘 13 欄在進階欄位，TotalCharges 附說明', () => {
     const items = wrapper.findAll('[data-field]')
-    expect(items.map((i) => i.attributes('data-field'))).toEqual([...FEATURE_NAMES])
-    expect(wrapper.findAll('[data-field].is-required')).toHaveLength(18)
+    const advanced = FEATURE_NAMES.filter((n) => !BASIC_FIELDS.includes(n))
+    expect(items.map((i) => i.attributes('data-field'))).toEqual([...BASIC_FIELDS, ...advanced])
+    expect(
+      wrapper.findAll('[data-field].is-required').map((i) => i.attributes('data-field')),
+    ).toEqual([...BASIC_FIELDS])
+    expect(advanced).toHaveLength(13)
     const total = wrapper.find('[data-field="TotalCharges"]')
-    expect(total.classes()).not.toContain('is-required')
     expect(total.text()).toContain('累計費用（選填）')
     expect(total.text()).toContain('不填寫時，系統會以「在網月數 × 月費」估算')
-    expect(wrapper.text()).toContain('標示 * 的欄位必填')
+    expect(wrapper.text()).toContain('只要填寫標示 * 的基本欄位即可預測')
+  })
+
+  it('進階欄位預設收合，按下切換後展開', async () => {
+    const toggle = wrapper.find('.advanced-toggle')
+    expect(toggle.text()).toContain('進階欄位（選填，13 欄）')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-field="gender"]').isVisible()).toBe(false)
+    expect(wrapper.find('[data-field="Contract"]').isVisible()).toBe(true)
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('[data-field="gender"]').isVisible()).toBe(true)
   })
 
   it('每個欄位有中文標籤，英文原始名為輔助文字', () => {
@@ -88,15 +108,16 @@ describe('欄位呈現（AC-1.1）', () => {
     expect(store.values.InternetService).toBe('Fiber optic')
   })
 
-  it('初始所有欄位未填；連動子欄位停用並提示', () => {
-    expect(Object.values(store.values).every((v) => v === null)).toBe(true)
-    expect(radios('MultipleLines').every((r) => r.element.disabled)).toBe(true)
-    expect(wrapper.find('[data-field="MultipleLines"]').text()).toContain('請先選擇電話服務')
+  it('初始：基本欄位未填、進階欄位帶預設值；TechSupport 等網路服務選了才可選', () => {
+    expect(store.values).toEqual(createInitialValues())
+    for (const name of BASIC_FIELDS) expect(store.values[name]).toBeNull()
+    expect(radios('TechSupport').every((r) => r.element.disabled)).toBe(true)
+    expect(wrapper.find('[data-field="TechSupport"]').text()).toContain('請先選擇網路服務')
   })
 })
 
 describe('連動（AC-1.5、1.6）', () => {
-  it('PhoneService=No 時 MultipleLines 鎖定，改回 Yes 清空', async () => {
+  it('PhoneService=No 時 MultipleLines 鎖定，改回 Yes 回到預設值', async () => {
     await pick('PhoneService', 'No')
     const locked = radios('MultipleLines')
     expect(locked).toHaveLength(1)
@@ -109,11 +130,10 @@ describe('連動（AC-1.5、1.6）', () => {
     expect(store.values.MultipleLines).toBe('No phone service')
 
     await pick('PhoneService', 'Yes')
-    expect(store.values.MultipleLines).toBeNull()
+    expect(store.values.MultipleLines).toBe('No')
     expect(radios('MultipleLines').map((r) => r.element.value)).toEqual(['Yes', 'No'])
-    expect(radios('MultipleLines').every((r) => !r.element.checked && !r.element.disabled)).toBe(
-      true,
-    )
+    expect(radios('MultipleLines').every((r) => !r.element.disabled)).toBe(true)
+    expect(radios('MultipleLines').find((r) => r.element.checked)?.element.value).toBe('No')
   })
 
   it('InternetService=No 時 6 個附加服務鎖定，改回 DSL 清空', async () => {
@@ -132,6 +152,7 @@ describe('連動（AC-1.5、1.6）', () => {
     }
     await pick('InternetService', 'DSL')
     expect(store.values.TechSupport).toBeNull()
+    expect(store.values.OnlineSecurity).toBe('No')
     expect(radios('TechSupport').every((r) => !r.element.disabled)).toBe(true)
   })
 
@@ -145,21 +166,40 @@ describe('連動（AC-1.5、1.6）', () => {
 })
 
 describe('驗證與送出（AC-1.7）', () => {
-  it('空表單按預測：不送出、欄位下顯示訊息、顯示摘要、焦點移到第一個錯誤欄位', async () => {
+  it('空表單按預測：只有 6 個基本欄位報錯、進階欄位不展開、焦點移到第一個基本欄位', async () => {
     await submit()
     expect(wrapper.emitted('submit')).toBeUndefined()
-    expect(errorText('gender')).toContain('請選擇性別')
+    expect(Object.keys(store.errors).sort()).toEqual([...BASIC_FIELDS].sort())
     expect(errorText('tenure')).toContain('請輸入在網月數')
     expect(errorText('MonthlyCharges')).toContain('請輸入月費')
-    expect(wrapper.find('[data-field="TotalCharges"] .el-form-item__error').exists()).toBe(false)
-    expect(wrapper.find('.el-alert').text()).toContain('有 18 個欄位需要修正，請查看標示的欄位')
+    expect(wrapper.find('.el-alert').text()).toContain('有 6 個欄位需要修正，請查看標示的欄位')
+    expect(wrapper.find('.advanced-toggle').attributes('aria-expanded')).toBe('false')
     const active = document.activeElement as HTMLElement
-    expect(active.closest('#field-gender')).not.toBeNull()
+    expect(active.closest('#field-Contract')).not.toBeNull()
+  })
+
+  it('只填 6 個基本欄位即可送出，進階欄位以預設值補齊 19 欄', async () => {
+    store.setValue('Contract', 'Month-to-month')
+    store.setValue('tenure', 12)
+    store.setValue('MonthlyCharges', 70)
+    store.setValue('InternetService', 'Fiber optic')
+    store.setValue('PaymentMethod', 'Electronic check')
+    store.setValue('TechSupport', 'No')
+    await flushPromises()
+    await submit()
+    const emitted = wrapper.emitted('submit')
+    expect(emitted).toHaveLength(1)
+    const values = emitted![0]![0] as Record<string, unknown>
+    expect(Object.keys(values)).toHaveLength(19)
+    for (const [name, value] of Object.entries(ADVANCED_DEFAULTS)) {
+      expect(values[name]).toBe(value)
+    }
+    expect(values.TotalCharges).toBeNull()
   })
 
   it('錯誤訊息帶「!」圖示（不只靠顏色）', async () => {
     await submit()
-    expect(wrapper.find('[data-field="gender"] .field-error__icon').text()).toBe('!')
+    expect(wrapper.find('[data-field="Contract"] .field-error__icon').text()).toBe('!')
   })
 
   it.each([
@@ -193,12 +233,13 @@ describe('驗證與送出（AC-1.7）', () => {
 
   it('按過預測後修正欄位，錯誤與摘要即時更新', async () => {
     await submit()
-    expect(wrapper.find('.el-alert').text()).toContain('18')
-    expect(wrapper.find('[data-field="gender"] .el-form-item__error').exists()).toBe(true)
-    await pick('gender', 'Male')
+    expect(wrapper.find('.el-alert').text()).toContain('6')
+    const internet = '[data-field="InternetService"] .el-form-item__error'
+    expect(wrapper.find(internet).exists()).toBe(true)
+    await pick('InternetService', 'DSL')
     await settle()
-    expect(wrapper.find('[data-field="gender"] .el-form-item__error').exists()).toBe(false)
-    expect(store.errorCount).toBe(17)
+    expect(wrapper.find(internet).exists()).toBe(false)
+    expect(store.errorCount).toBe(5)
   })
 
   it('錯誤全部修正後摘要消失，不顯示「有 0 個欄位」', async () => {
@@ -224,6 +265,23 @@ describe('驗證與送出（AC-1.7）', () => {
     await submit()
     expect(wrapper.emitted('submit')).toBeUndefined()
     expect(errorText('TotalCharges')).toContain('估算累計費用超過上限，請手動填寫')
+    // 錯誤在進階欄位時自動展開，錯誤看得到
+    const toggle = wrapper.find('.advanced-toggle')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('[data-field="TotalCharges"]').isVisible()).toBe(true)
+
+    // 手動收合後改基本欄位（錯誤欄位沒變），不會又自動展開
+    await toggle.trigger('click')
+    store.setValue('Contract', 'One year')
+    await flushPromises()
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+  })
+
+  it('收合按鈕的 aria-controls 指到所有進階卡片', () => {
+    const ids = wrapper.find('.advanced-toggle').attributes('aria-controls')!.split(' ')
+    expect(ids.length).toBeGreaterThan(1)
+    for (const id of ids) expect(wrapper.find(`#${id}`).exists()).toBe(true)
+    expect(wrapper.find(`#${ids[0]} [data-field="gender"]`).exists()).toBe(true)
   })
 
   it('輸入欄位：在 tenure 輸入框打字後，值寫入 store', async () => {
@@ -259,12 +317,12 @@ describe('載入範例與清除', () => {
     expect(wrapper.find('.el-form-item__error').exists()).toBe(false)
   })
 
-  it('清除會清空整張表單', async () => {
+  it('清除會回到初始狀態（基本欄位空白、進階欄位預設值）', async () => {
     store.loadExample('high')
     await flushPromises()
     const clear = wrapper.findAll('button').find((b) => b.text() === '清除')!
     await clear.trigger('click')
-    expect(Object.values(store.values).every((v) => v === null)).toBe(true)
+    expect(store.values).toEqual(createInitialValues())
   })
 })
 
@@ -287,9 +345,9 @@ describe('無障礙與鍵盤（NFR-10）', () => {
     expect(wrapper.find('#field-Contract input').attributes('aria-describedby')).toBe(
       'error-Contract',
     )
-    expect(wrapper.find('#field-gender [role="radiogroup"]').attributes('aria-describedby')).toBe(
-      'error-gender',
-    )
+    expect(
+      wrapper.find('#field-InternetService [role="radiogroup"]').attributes('aria-describedby'),
+    ).toBe('error-InternetService')
   })
 
   it('radio group 以 aria-labelledby 指到欄位標籤', () => {

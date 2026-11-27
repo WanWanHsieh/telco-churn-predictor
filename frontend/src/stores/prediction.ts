@@ -7,7 +7,8 @@ import { predict, type PredictionResponse } from '../api/predictions'
 import { applyDependencies } from '../domain/dependencies'
 import { getExample, type ExampleKind } from '../domain/examples'
 import {
-  createEmptyValues,
+  createInitialValues,
+  defaultedFields,
   FEATURE_NAMES,
   type FeatureName,
   type FieldErrors,
@@ -19,7 +20,8 @@ import { validateForm } from '../domain/validation'
 export type SubmitStatus = 'idle' | 'loading' | 'success' | 'error'
 
 export const usePredictionStore = defineStore('prediction', () => {
-  const values = ref<FormValues>(createEmptyValues())
+  // 基本欄位空白、進階欄位帶預設值（只填基本欄位即可預測）
+  const values = ref<FormValues>(createInitialValues())
   const errors = ref<FieldErrors>({})
   /** 是否按過「預測」；之後欄位變更即時重驗 */
   const attempted = ref(false)
@@ -49,7 +51,7 @@ export const usePredictionStore = defineStore('prediction', () => {
   }
 
   function reset(): void {
-    values.value = createEmptyValues()
+    values.value = createInitialValues()
     resetValidation()
   }
 
@@ -76,6 +78,10 @@ export const usePredictionStore = defineStore('prediction', () => {
   /** 最近一次送出的資料，供「重試」重送同一組 */
   const lastSubmitted = ref<FormValues | null>(null)
   const loading = computed(() => status.value === 'loading')
+  /** 最近一次送出時仍為預設值的進階欄位數，供結果區註明 */
+  const defaultedCount = computed(() =>
+    lastSubmitted.value ? defaultedFields(lastSubmitted.value).length : 0,
+  )
 
   /** 把 API 422 的欄位錯誤放到對應欄位下方（AC-1.8） */
   function applyServerErrors(error: ApiError): boolean {
@@ -136,6 +142,7 @@ export const usePredictionStore = defineStore('prediction', () => {
     result,
     serviceError,
     loading,
+    defaultedCount,
     submit,
     retry,
   }

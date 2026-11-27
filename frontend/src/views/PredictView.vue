@@ -48,7 +48,7 @@ async function onRetry(): Promise<void> {
           class="result-wrap"
           :class="{ 'result-wrap--stale': store.loading }"
         >
-          <PredictionResult :result="store.result" />
+          <PredictionResult :result="store.result" :defaulted-count="store.defaultedCount" />
         </div>
         <div v-else-if="store.loading" class="result-skeleton" data-testid="result-skeleton">
           <el-skeleton animated :rows="2" />

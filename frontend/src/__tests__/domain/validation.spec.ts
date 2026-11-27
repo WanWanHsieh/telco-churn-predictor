@@ -152,11 +152,11 @@ describe('選擇型欄位', () => {
 })
 
 describe('errorFieldsInOrder', () => {
-  it('依畫面順序排列', () => {
-    expect(errorFieldsInOrder({ Contract: 'x', gender: 'y', tenure: 'z' })).toEqual([
-      'gender',
-      'tenure',
+  it('依畫面順序排列：基本欄位在前，進階欄位在後', () => {
+    expect(errorFieldsInOrder({ gender: 'y', tenure: 'z', Contract: 'x' })).toEqual([
       'Contract',
+      'tenure',
+      'gender',
     ])
   })
 })

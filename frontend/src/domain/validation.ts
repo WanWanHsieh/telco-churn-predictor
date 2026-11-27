@@ -1,6 +1,7 @@
 // 前端驗證（ui.md 3.2；範圍與後端一致，見 design.md 6.2）。
 import { getLockState } from './dependencies'
 import {
+  BASIC_FIELDS,
   FIELDS,
   FEATURE_NAMES,
   RANGES,
@@ -80,7 +81,13 @@ export function validateForm(values: FormValues): FieldErrors {
   return errors
 }
 
+/** 畫面順序：先基本欄位，再依原順序列出進階欄位 */
+const DISPLAY_ORDER: readonly FeatureName[] = [
+  ...BASIC_FIELDS,
+  ...FEATURE_NAMES.filter((n) => !BASIC_FIELDS.includes(n)),
+]
+
 /** 依畫面順序列出有錯誤的欄位 */
 export function errorFieldsInOrder(errors: FieldErrors): FeatureName[] {
-  return FEATURE_NAMES.filter((n) => errors[n])
+  return DISPLAY_ORDER.filter((n) => errors[n])
 }
